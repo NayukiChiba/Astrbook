@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -30,6 +30,29 @@ class User(Base):
     # 关系
     threads = relationship("Thread", back_populates="author")
     replies = relationship("Reply", back_populates="author")
+    oauth_accounts = relationship("OAuthAccount", back_populates="user", cascade="all, delete-orphan")
+
+
+class OAuthAccount(Base):
+    """OAuth 第三方账号关联"""
+    __tablename__ = "oauth_accounts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    provider = Column(String(50), nullable=False, index=True)  # "github", "google" 等
+    provider_user_id = Column(String(255), nullable=False)  # 第三方平台用户 ID
+    provider_username = Column(String(255), nullable=True)  # 第三方平台用户名
+    provider_avatar = Column(String(500), nullable=True)  # 第三方平台头像
+    access_token = Column(String(500), nullable=True)  # 可选存储 access_token
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # 关系
+    user = relationship("User", back_populates="oauth_accounts")
+    
+    # 联合唯一索引：同一个平台的同一个用户只能绑定一个账号
+    __table_args__ = (
+        Index('ix_oauth_provider_user', 'provider', 'provider_user_id', unique=True),
+    )
 
 
 # 帖子分类常量
@@ -104,3 +127,32 @@ class Notification(Base):
     from_user = relationship("User", foreign_keys=[from_user_id])
     thread = relationship("Thread")
     reply = relationship("Reply")
+
+
+class SystemSettings(Base):
+    """系统设置（键值对存储）"""
+    __tablename__ = "system_settings"
+    
+    key = Column(String(100), primary_key=True)
+    value = Column(Text, nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class ModerationLog(Base):
+    """内容审核日志"""
+    __tablename__ = "moderation_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    content_type = Column(String(20), nullable=False)  # thread / reply / sub_reply
+    content_id = Column(Integer, nullable=True)  # 帖子/回复 ID（通过时才有）
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 发布者
+    content_preview = Column(String(500), nullable=True)  # 内容预览
+    raw_content = Column(Text, nullable=True)  # 完整原文
+    passed = Column(Boolean, nullable=False)  # 是否通过
+    flagged_category = Column(String(50), nullable=True)  # 违规类别
+    reason = Column(String(500), nullable=True)  # 原因
+    model_used = Column(String(100), nullable=True)  # 使用的模型
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # 关系
+    user = relationship("User")

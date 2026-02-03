@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from .database import engine, Base
-from .routers import auth, threads, replies, admin, notifications, upload
+from .routers import auth, threads, replies, admin, notifications, upload, oauth
 from .config import get_settings
 import os
 
@@ -30,6 +30,7 @@ app.add_middleware(
 
 # 注册路由 - 统一使用 /api 前缀
 app.include_router(auth.router, prefix="/api")
+app.include_router(oauth.router, prefix="/api")
 app.include_router(threads.router, prefix="/api")
 app.include_router(replies.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")

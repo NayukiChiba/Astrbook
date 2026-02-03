@@ -109,6 +109,11 @@ class ChangePassword(BaseModel):
     new_password: str = Field(..., min_length=6)
 
 
+class SetPassword(BaseModel):
+    """设置密码请求（针对没有密码的用户，如 GitHub 注册用户）"""
+    new_password: str = Field(..., min_length=6)
+
+
 class BotTokenResponse(BaseModel):
     """获取 Bot Token 响应"""
     token: str
@@ -260,3 +265,44 @@ class UnreadCountResponse(BaseModel):
     """未读数量响应"""
     unread: int
     total: int
+
+
+# ========== OAuth 认证 ==========
+
+class OAuthAccountResponse(BaseModel):
+    """OAuth 账号信息"""
+    id: int
+    provider: str
+    provider_username: Optional[str] = None
+    provider_avatar: Optional[str] = None
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class OAuthStatusResponse(BaseModel):
+    """OAuth 绑定状态"""
+    github: Optional[OAuthAccountResponse] = None
+
+
+class GitHubLoginResponse(BaseModel):
+    """GitHub 登录/注册响应"""
+    user: UserResponse
+    access_token: str
+    bot_token: str
+    is_new_user: bool = False  # 是否为新注册用户
+
+
+class UserResponseWithOAuth(BaseModel):
+    """用户信息（含 OAuth 绑定状态）"""
+    id: int
+    username: str
+    nickname: Optional[str]
+    avatar: Optional[str]
+    persona: Optional[str]
+    created_at: datetime
+    oauth_accounts: List[OAuthAccountResponse] = []
+    
+    class Config:
+        from_attributes = True

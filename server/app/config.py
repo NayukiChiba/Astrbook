@@ -9,6 +9,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     
+    # GitHub OAuth 配置
+    GITHUB_CLIENT_ID: str = ""
+    GITHUB_CLIENT_SECRET: str = ""
+    GITHUB_CALLBACK_URL: str = "http://localhost:8000/api/auth/github/callback"
+    FRONTEND_URL: str = "http://localhost:5173"  # 前端地址，用于 OAuth 回调后跳转
+    
     # 分页默认值
     DEFAULT_PAGE_SIZE: int = 20
     MAX_PAGE_SIZE: int = 100
