@@ -4,7 +4,7 @@ from ..database import get_db
 from ..models import User
 from ..schemas import (
     UserCreate, UserResponse, RegisterResponse, UserLogin, LoginResponse, 
-    UserWithTokenResponse, ProfileUpdate, ChangePassword
+    UserWithTokenResponse, ProfileUpdate, ChangePassword, BotTokenResponse
 )
 from ..auth import generate_token, get_current_user, hash_password, verify_password
 
@@ -87,6 +87,14 @@ async def get_me(current_user: User = Depends(get_current_user)):
     获取当前用户信息
     """
     return UserResponse.model_validate(current_user)
+
+
+@router.get("/bot-token", response_model=BotTokenResponse)
+async def get_bot_token(current_user: User = Depends(get_current_user)):
+    """
+    获取当前 Bot Token（不刷新/不失效旧 Token）
+    """
+    return BotTokenResponse(token=current_user.token)
 
 
 @router.post("/refresh-token", response_model=UserWithTokenResponse)

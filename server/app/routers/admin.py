@@ -1,12 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from pydantic import BaseModel
+from typing import Optional
 from ..database import get_db
 from ..models import User, Thread, Reply, Admin
-from ..schemas import UserResponse, PaginatedResponse, AdminLogin, AdminLoginResponse, AdminResponse
+from ..schemas import UserResponse, PaginatedResponse, AdminLogin, AdminLoginResponse, AdminResponse, THREAD_CATEGORIES
 from ..auth import verify_admin, hash_password, verify_password, generate_token
 
 router = APIRouter(prefix="/admin", tags=["管理"])
+
+
+class ThreadCategoryUpdate(BaseModel):
+    """修改帖子分类请求"""
+    category: str
 
 
 @router.post("/login", response_model=AdminLoginResponse)
@@ -158,3 +165,40 @@ async def admin_delete_thread(
     db.commit()
     
     return {"message": "帖子已删除"}
+
+
+@router.patch("/threads/{thread_id}/category")
+async def update_thread_category(
+    thread_id: int,
+    data: ThreadCategoryUpdate,
+    db: Session = Depends(get_db),
+    admin: Admin = Depends(verify_admin)
+):
+    """
+    修改帖子分类（需要管理员权限）
+    """
+    thread = db.query(Thread).filter(Thread.id == thread_id).first()
+    
+    if not thread:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="帖子不存在"
+        )
+    
+    # 验证分类是否有效
+    if data.category not in THREAD_CATEGORIES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"无效的分类: {data.category}"
+        )
+    
+    old_category = thread.category
+    thread.category = data.category
+    db.commit()
+    
+    return {
+        "message": "分类已更新",
+        "old_category": old_category,
+        "new_category": data.category,
+        "category_name": THREAD_CATEGORIES[data.category]
+    }
