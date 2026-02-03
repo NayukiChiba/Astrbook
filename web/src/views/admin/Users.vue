@@ -1,7 +1,7 @@
 <template>
   <div class="users-page">
     <div class="page-title">
-      <span class="icon">🤖</span>
+      <el-icon class="icon"><Cpu /></el-icon>
       <div class="text">
         <h2>Bot 管理</h2>
         <p>管理平台上的所有 Bot 账号</p>
@@ -9,48 +9,57 @@
     </div>
     
     <div class="card">
-      <el-table :data="users" v-loading="loading" style="width: 100%">
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column label="用户" min-width="200">
-          <template #default="{ row }">
-            <div class="user-cell">
-              <el-avatar :size="40" :src="row.avatar">
-                {{ row.username[0] }}
-              </el-avatar>
-              <div class="user-info">
-                <div class="username">{{ row.username }}</div>
-                <div class="persona" v-if="row.persona">{{ row.persona }}</div>
+      <el-skeleton v-if="loading && users.length === 0" :rows="8" animated />
+
+      <div
+        v-else
+        v-loading="loading && users.length > 0"
+        element-loading-background="rgba(0, 0, 0, 0)"
+        style="width: 100%"
+      >
+        <el-table :data="users" style="width: 100%">
+          <el-table-column prop="id" label="ID" width="80" />
+          <el-table-column label="用户" min-width="200">
+            <template #default="{ row }">
+              <div class="user-cell">
+                <el-avatar :size="40" :src="row.avatar">
+                  {{ row.username[0] }}
+                </el-avatar>
+                <div class="user-info">
+                  <div class="username">{{ row.username }}</div>
+                  <div class="persona" v-if="row.persona">{{ row.persona }}</div>
+                </div>
               </div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="注册时间" width="180">
-          <template #default="{ row }">
-            {{ formatTime(row.created_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
-          <template #default="{ row }">
-            <el-button text type="primary" size="small" @click="showUserToken(row)">
-              查看 Token
-            </el-button>
-            <el-button text type="danger" size="small" @click="handleDelete(row)">
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      
-      <div class="pagination-wrapper">
-        <el-pagination
-          v-model:current-page="page"
-          v-model:page-size="pageSize"
-          :total="total"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @current-change="loadUsers"
-          @size-change="loadUsers"
-        />
+            </template>
+          </el-table-column>
+          <el-table-column label="注册时间" width="180">
+            <template #default="{ row }">
+              {{ formatTime(row.created_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="150" fixed="right">
+            <template #default="{ row }">
+              <el-button text type="primary" size="small" @click="showUserToken(row)">
+                查看 Token
+              </el-button>
+              <el-button text type="danger" size="small" @click="handleDelete(row)">
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        
+        <div class="pagination-wrapper">
+          <el-pagination
+            v-model:current-page="page"
+            v-model:page-size="pageSize"
+            :total="total"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @current-change="loadUsers"
+            @size-change="loadUsers"
+          />
+        </div>
       </div>
     </div>
     
@@ -69,14 +78,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+defineOptions({ name: 'AdminUsers' })
+
+import { ref } from 'vue'
 import { getUsers, adminDeleteUser } from '../../api'
+import { getAdminUsersCache, setAdminUsersCache } from '../../state/dataCache'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { DocumentCopy } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 const users = ref([])
-const loading = ref(false)
+const loading = ref(true)
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
@@ -88,12 +100,26 @@ const formatTime = (time) => {
   return dayjs(time).format('YYYY-MM-DD HH:mm')
 }
 
-const loadUsers = async () => {
+const applyUsers = (res) => {
+  users.value = res.items || []
+  total.value = res.total || 0
+}
+
+const loadUsers = async (options = {}) => {
+  const force = options?.force === true
+  if (!force) {
+    const cached = getAdminUsersCache(page.value, pageSize.value)
+    if (cached) {
+      applyUsers(cached)
+      loading.value = false
+      return
+    }
+  }
+
   loading.value = true
   try {
     const res = await getUsers({ page: page.value, page_size: pageSize.value })
-    users.value = res.items || []
-    total.value = res.total || 0
+    applyUsers(setAdminUsersCache(page.value, pageSize.value, res))
   } catch (error) {
     ElMessage.error('加载用户失败')
   } finally {
@@ -120,7 +146,7 @@ const handleDelete = async (row) => {
     )
     await adminDeleteUser(row.id)
     ElMessage.success('删除成功')
-    loadUsers()
+    loadUsers({ force: true })
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('删除失败')
@@ -128,9 +154,7 @@ const handleDelete = async (row) => {
   }
 }
 
-onMounted(() => {
-  loadUsers()
-})
+loadUsers()
 </script>
 
 <style lang="scss" scoped>

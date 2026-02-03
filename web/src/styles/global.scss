@@ -51,6 +51,25 @@ body {
   
   --card-radius: 24px; // 更大的圆角
   --btn-radius: 12px;
+
+  // Accent aliases (used by some pages)
+  --accent-purple: var(--acid-purple);
+  --accent-blue: var(--acid-blue);
+  --accent-cyan: var(--acid-blue);
+
+  // Extra text tone
+  --text-tertiary: rgba(255, 255, 255, 0.55);
+
+  // Element Plus skeleton colors (match dark theme)
+  --el-skeleton-color: rgba(255, 255, 255, 0.06);
+  --el-skeleton-to-color: rgba(255, 255, 255, 0.14);
+
+  // Motion tokens
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --duration-fast: 180ms;
+  --duration: 260ms;
+  --duration-leave: 120ms;
 }
 
 // 全局背景动画容器 (用于放置流体光斑)
@@ -169,6 +188,136 @@ a {
     p {
       font-size: 14px;
       color: var(--text-secondary);
+    }
+  }
+}
+
+// Vue transitions
+.route-enter-active,
+.route-leave-active {
+  will-change: opacity, transform;
+}
+.route-enter-active {
+  transition: opacity var(--duration) var(--ease-out), transform var(--duration) var(--ease-out);
+}
+.route-leave-active {
+  transition: opacity var(--duration-leave) var(--ease-in), transform var(--duration-leave) var(--ease-in);
+}
+.route-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.route-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration) var(--ease-out);
+}
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.list-enter-active,
+.list-leave-active {
+  transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration) var(--ease-out);
+}
+.list-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.list-leave-to {
+  opacity: 0;
+  transform: translateY(-12px);
+}
+.list-move {
+  transition: transform var(--duration) var(--ease-out);
+}
+.list-leave-active {
+  position: absolute;
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-enter-active,
+  .route-leave-active,
+  .fade-slide-enter-active,
+  .fade-slide-leave-active,
+  .list-enter-active,
+  .list-leave-active,
+  .list-move {
+    transition-duration: 1ms !important;
+  }
+}
+
+// Acid Style Select Dropdown
+// 注意：el-select 的下拉菜单是 teleport 到 body 的，需要使用全局样式
+.acid-select-dropdown.el-popper.el-select__popper {
+  background: rgba(30, 30, 35, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  border-radius: 16px !important;
+  overflow: hidden;
+  padding: 6px !important;
+  
+  .el-popper__arrow {
+    display: none !important;
+  }
+  
+  .el-select-dropdown {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  
+  .el-select-dropdown__wrap {
+    max-height: none !important;
+  }
+  
+  .el-select-dropdown__list {
+    padding: 0 !important;
+  }
+  
+  .el-select-dropdown__item {
+    color: var(--text-secondary) !important;
+    font-size: 14px !important;
+    padding: 8px 16px !important;
+    height: auto !important;
+    line-height: 1.5 !important;
+    margin: 2px 0 !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+    background: transparent !important;
+    
+    // hover 样式
+    &:hover, &.hover, &.is-hovering {
+      background-color: rgba(255, 255, 255, 0.1) !important;
+      color: var(--text-primary) !important;
+      box-shadow: none !important;
+    }
+    
+    // 选中样式
+    &.is-selected, &.selected {
+      color: #000 !important;
+      font-weight: 600 !important;
+      background-color: var(--acid-green) !important;
+      box-shadow: 0 0 15px rgba(204, 255, 0, 0.3) !important;
+      
+      &:hover {
+        background-color: var(--acid-green) !important;
+        color: #000 !important;
+      }
     }
   }
 }

@@ -57,25 +57,29 @@ const renderedContent = computed(() => {
   }
   
   code {
-    background: #f5f7fa;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     padding: 2px 6px;
-    border-radius: 4px;
-    font-family: Consolas, Monaco, 'Courier New', monospace;
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
     font-size: 0.9em;
-    color: #e6a23c;
+    color: var(--acid-green);
   }
   
   pre {
-    background: #f5f7fa;
-    padding: 12px 16px;
-    border-radius: 8px;
-    overflow-x: auto;
-    margin: 12px 0;
+    background: #050507;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 14px 16px;
+    border-radius: 12px;
+    overflow: auto;
+    margin: 14px 0;
     
     code {
       background: none;
       padding: 0;
-      color: inherit;
+      color: rgba(255, 255, 255, 0.9);
+      display: block;
+      line-height: 1.6;
     }
   }
   

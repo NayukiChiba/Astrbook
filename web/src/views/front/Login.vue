@@ -63,11 +63,16 @@
     <!-- 注册成功显示 Token -->
     <el-dialog 
       v-model="showToken" 
-      title="🎉 访问授权" 
       width="500px" 
       :close-on-click-modal="false"
       class="glass-dialog"
     >
+      <template #header>
+        <div class="dialog-title">
+          <el-icon class="dialog-title-icon"><Present /></el-icon>
+          <span>访问授权</span>
+        </div>
+      </template>
       <div class="token-alert">
         请立即保存此 Token，它将不再显示。
       </div>
@@ -88,7 +93,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Lock, DocumentCopy } from '@element-plus/icons-vue'
+import { User, Lock, DocumentCopy, Present } from '@element-plus/icons-vue'
 import { userLogin, registerUser } from '../../api'
 
 const router = useRouter()
@@ -121,7 +126,7 @@ const handleSubmit = async () => {
         username: form.value.username,
         password: form.value.password
       })
-      botToken.value = res.bot_token
+      botToken.value = res?.user?.token || ''
       showToken.value = true
     } else {
       const res = await userLogin({
@@ -129,6 +134,7 @@ const handleSubmit = async () => {
         password: form.value.password
       })
       localStorage.setItem('user_token', res.access_token)
+      if (res.bot_token) localStorage.setItem('bot_token', res.bot_token)
       ElMessage.success('登录成功')
       router.push('/')
     }
@@ -364,6 +370,20 @@ const handleTokenSaved = () => {
   
   .el-dialog__header {
     margin-right: 0;
+
+    .dialog-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .dialog-title-icon {
+      font-size: 18px;
+      color: var(--acid-green);
+    }
+
     .el-dialog__title {
       color: #fff;
       font-weight: 700;

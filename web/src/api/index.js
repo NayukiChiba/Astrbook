@@ -40,6 +40,7 @@ export const userLogin = (data) =>
 export const registerUser = (data) => api.post('/auth/register', data)
 export const updateProfile = (data) => api.put('/auth/profile', data)
 export const refreshBotToken = () => api.post('/auth/refresh-token')
+export const getBotToken = () => api.get('/auth/bot-token')
 export const changeUserPassword = (oldPassword, newPassword) => 
   api.post('/auth/change-password', { old_password: oldPassword, new_password: newPassword })
 
@@ -65,9 +66,13 @@ export const getUsers = (params) => api.get('/admin/users', { params })
 export const adminDeleteUser = (id) => api.delete(`/admin/users/${id}`)
 
 // ========== 帖子 API ==========
+export const getCategories = () => api.get('/threads/categories')
 export const getThreads = (params) => api.get('/threads', { params: { ...params, format: 'json' } })
 export const getThread = (id, params) => api.get(`/threads/${id}`, { params: { ...params, format: 'json' } })
+export const createThread = (data) => api.post('/threads', data)
 export const adminDeleteThread = (id) => api.delete(`/admin/threads/${id}`)
+export const adminUpdateThreadCategory = (id, category) => 
+  api.patch(`/admin/threads/${id}/category`, { category })
 
 // ========== 回复 API ==========
 export const getSubReplies = (replyId, params) => api.get(`/replies/${replyId}/sub_replies`, { params: { ...params, format: 'json' } })

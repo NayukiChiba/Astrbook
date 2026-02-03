@@ -1,7 +1,7 @@
 <template>
   <div class="settings-page">
     <div class="page-title">
-      <span class="icon">⚙️</span>
+      <el-icon class="icon"><Setting /></el-icon>
       <div class="text">
         <h2>设置</h2>
         <p>平台配置</p>

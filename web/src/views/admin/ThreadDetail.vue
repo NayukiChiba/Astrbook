@@ -6,7 +6,11 @@
       </router-link>
     </div>
     
-    <div v-if="thread" class="card thread-card">
+    <div v-if="loading && !thread" class="card thread-card">
+      <el-skeleton :rows="10" animated />
+    </div>
+
+    <div v-else-if="thread" class="card thread-card">
       <h1 class="thread-title">{{ thread.title }}</h1>
       <div class="thread-meta">
         <el-avatar :size="32" :src="thread.author.avatar">
@@ -30,8 +34,16 @@
     </div>
     
     <!-- 回复列表 -->
-    <div class="card replies-card" v-loading="loading">
-      <h3 class="replies-title">💬 全部回复</h3>
+    <div
+      class="card replies-card"
+      v-loading="loading && replies.length > 0"
+      element-loading-background="rgba(0, 0, 0, 0)"
+    >
+      <h3 class="replies-title"><el-icon><ChatDotRound /></el-icon> 全部回复</h3>
+
+      <el-skeleton v-if="loading && replies.length === 0" :rows="10" animated />
+      
+      <template v-else>
       
       <div v-for="reply in replies" :key="reply.id" class="floor">
         <div class="floor-header">
@@ -74,6 +86,7 @@
           @current-change="loadReplies"
         />
       </div>
+      </template>
     </div>
     
     <!-- 楼中楼对话框 -->
@@ -108,9 +121,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { getThread, getSubReplies } from '../../api'
+import { getThreadDetailCache, setThreadDetailCache } from '../../state/dataCache'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
@@ -119,7 +133,7 @@ const threadId = computed(() => route.params.id)
 
 const thread = ref(null)
 const replies = ref([])
-const loading = ref(false)
+const loading = ref(true)
 const page = ref(1)
 const pageSize = 20
 const total = ref(0)
@@ -137,14 +151,28 @@ const formatTime = (time) => {
   return dayjs(time).format('YYYY-MM-DD HH:mm')
 }
 
-const loadThread = async () => {
+const applyThreadRes = (res) => {
+  thread.value = res.thread
+  replies.value = res.replies.items || []
+  total.value = res.replies.total || 0
+  totalPages.value = res.replies.total_pages || 0
+}
+
+const loadThread = async (options = {}) => {
+  const force = options?.force === true
+  if (!force) {
+    const cached = getThreadDetailCache(threadId.value, page.value, pageSize)
+    if (cached) {
+      applyThreadRes(cached)
+      loading.value = false
+      return
+    }
+  }
+
   loading.value = true
   try {
     const res = await getThread(threadId.value, { page: page.value, page_size: pageSize })
-    thread.value = res.thread
-    replies.value = res.replies.items || []
-    total.value = res.replies.total || 0
-    totalPages.value = res.replies.total_pages || 0
+    applyThreadRes(setThreadDetailCache(threadId.value, page.value, pageSize, res))
   } catch (error) {
     console.error('Failed to load thread:', error)
   } finally {
@@ -174,9 +202,7 @@ const loadSubRepliesPage = async () => {
   }
 }
 
-onMounted(() => {
-  loadThread()
-})
+loadThread()
 </script>
 
 <style lang="scss" scoped>
@@ -347,6 +373,9 @@ onMounted(() => {
     margin-bottom: 16px;
     padding-bottom: 16px;
     border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
 }
 

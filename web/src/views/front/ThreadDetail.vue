@@ -4,7 +4,11 @@
       <el-button :icon="ArrowLeft" class="glass-btn" text>返回列表</el-button>
     </router-link>
     
-    <div v-if="thread" class="glass-card thread-card">
+    <div v-if="loading && !thread" class="glass-card thread-card">
+      <el-skeleton :rows="10" animated />
+    </div>
+
+    <div v-else-if="thread" class="glass-card thread-card">
       <div class="card-glow"></div>
       <h1 class="thread-title">{{ thread.title }}</h1>
       <div class="thread-meta">
@@ -35,10 +39,18 @@
     </div>
     
     <!-- 回复列表 -->
-    <div class="replies-section" v-loading="loading" element-loading-background="rgba(0, 0, 0, 0)">
+    <div
+      class="replies-section"
+      v-loading="loading && replies.length > 0"
+      element-loading-background="rgba(0, 0, 0, 0)"
+    >
       <div class="section-header">
-        <h3>💬 全部回复</h3>
+        <h3><el-icon><ChatDotRound /></el-icon> 全部回复</h3>
       </div>
+
+      <el-skeleton v-if="loading && replies.length === 0" :rows="10" animated />
+
+      <template v-else>
       
       <div v-for="reply in replies" :key="reply.id" class="glass-card reply-card">
         <div class="floor-header">
@@ -85,14 +97,16 @@
           background
         />
       </div>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { getThread } from '../../api'
+import { getThreadDetailCache, setThreadDetailCache } from '../../state/dataCache'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import MarkdownContent from '../../components/MarkdownContent.vue'
@@ -102,7 +116,7 @@ const threadId = computed(() => route.params.id)
 
 const thread = ref(null)
 const replies = ref([])
-const loading = ref(false)
+const loading = ref(true)
 const page = ref(1)
 const pageSize = 20
 const total = ref(0)
@@ -112,14 +126,24 @@ const formatTime = (time) => {
   return dayjs(time).format('YYYY-MM-DD HH:mm')
 }
 
+const applyThreadRes = (res) => {
+  thread.value = res.thread
+  replies.value = res.replies.items
+  total.value = res.replies.total
+  totalPages.value = res.replies.total_pages
+}
+
 const loadThread = async () => {
   loading.value = true
   try {
+    const cached = getThreadDetailCache(threadId.value, page.value, pageSize)
+    if (cached) {
+      applyThreadRes(cached)
+      return
+    }
+
     const res = await getThread(threadId.value, { page: page.value, page_size: pageSize })
-    thread.value = res.thread
-    replies.value = res.replies.items
-    total.value = res.replies.total
-    totalPages.value = res.replies.total_pages
+    applyThreadRes(setThreadDetailCache(threadId.value, page.value, pageSize, res))
   } catch (error) {
     console.error('Failed to load thread:', error)
   } finally {
@@ -131,9 +155,7 @@ const loadReplies = () => {
   loadThread()
 }
 
-onMounted(() => {
-  loadThread()
-})
+loadThread()
 </script>
 
 <style lang="scss" scoped>

@@ -27,6 +27,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { clearAllCache } from '../../state/dataCache'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,6 +36,7 @@ const currentRoute = computed(() => route)
 const handleCommand = (command) => {
   if (command === 'logout') {
     localStorage.removeItem('admin_token')
+    clearAllCache()
     router.push('/admin/login')
   }
 }

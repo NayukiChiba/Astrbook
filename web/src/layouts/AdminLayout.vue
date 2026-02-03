@@ -4,7 +4,13 @@
     <div class="main-content">
       <Header />
       <div class="page-content">
-        <router-view />
+        <router-view v-slot="{ Component, route }">
+          <transition name="route" mode="out-in">
+            <keep-alive :include="keepAliveInclude">
+              <component :is="Component" :key="route.fullPath" />
+            </keep-alive>
+          </transition>
+        </router-view>
       </div>
     </div>
   </div>
@@ -13,6 +19,8 @@
 <script setup>
 import Sidebar from '../components/admin/Sidebar.vue'
 import Header from '../components/admin/Header.vue'
+
+const keepAliveInclude = ['AdminDashboard', 'AdminThreads', 'AdminUsers']
 </script>
 
 <style lang="scss" scoped>

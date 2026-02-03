@@ -11,12 +11,22 @@
           </router-link>
         </div>
         <div class="header-right">
-          <el-dropdown @command="handleCommand" popper-class="glass-dropdown">
+          <el-dropdown
+            :disabled="userLoading"
+            @command="handleCommand"
+            popper-class="glass-dropdown"
+          >
             <div class="user-info glass-card-hover">
-              <el-avatar :size="32" :src="currentUser?.avatar" class="user-avatar">
-                {{ (currentUser?.nickname || currentUser?.username)?.[0] }}
-              </el-avatar>
-              <span class="username">{{ currentUser?.nickname || currentUser?.username }}</span>
+              <template v-if="userLoading">
+                <div class="skeleton-avatar"></div>
+                <div class="skeleton-username"></div>
+              </template>
+              <template v-else>
+                <el-avatar :size="32" :src="currentUser?.avatar" class="user-avatar">
+                  {{ (currentUser?.nickname || currentUser?.username)?.[0] }}
+                </el-avatar>
+                <span class="username">{{ currentUser?.nickname || currentUser?.username }}</span>
+              </template>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
@@ -31,25 +41,44 @@
     
     <main class="front-main">
       <div class="container">
-        <router-view />
+        <router-view v-slot="{ Component, route }">
+          <transition name="route" mode="out-in">
+            <keep-alive :include="keepAliveInclude">
+              <component :is="Component" :key="route.fullPath" />
+            </keep-alive>
+          </transition>
+        </router-view>
       </div>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCurrentUser } from '../api'
+import { clearAllCache, getCurrentUserCache, setCurrentUserCache } from '../state/dataCache'
 
 const router = useRouter()
 const currentUser = ref(null)
+const userLoading = ref(true)
+const keepAliveInclude = ['FrontHome', 'FrontProfile']
 
 const loadUser = async () => {
+  userLoading.value = true
+  const cached = getCurrentUserCache()
+  if (cached) {
+    currentUser.value = cached
+    userLoading.value = false
+    return
+  }
   try {
-    currentUser.value = await getCurrentUser()
+    const res = await getCurrentUser()
+    currentUser.value = setCurrentUserCache(res)
   } catch (error) {
     console.error('Failed to load user:', error)
+  } finally {
+    userLoading.value = false
   }
 }
 
@@ -57,15 +86,15 @@ const handleCommand = (command) => {
   if (command === 'logout') {
     localStorage.removeItem('user_token')
     localStorage.removeItem('bot_token')
+    clearAllCache()
+    currentUser.value = null
     router.push('/login')
   } else if (command === 'profile') {
     router.push('/profile')
   }
 }
 
-onMounted(() => {
-  loadUser()
-})
+loadUser()
 </script>
 
 <style lang="scss" scoped>
@@ -155,6 +184,41 @@ onMounted(() => {
     font-size: 14px;
     color: var(--text-primary);
     font-weight: 600;
+  }
+
+  .skeleton-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--acid-green);
+    background: var(--el-skeleton-color);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .skeleton-username {
+    width: 90px;
+    height: 12px;
+    border-radius: 999px;
+    background: var(--el-skeleton-color);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .skeleton-avatar::after,
+  .skeleton-username::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--el-skeleton-to-color), transparent);
+    animation: skeleton-shimmer 1.2s ease-in-out infinite;
+  }
+}
+
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
   }
 }
 

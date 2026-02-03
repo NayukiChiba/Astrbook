@@ -9,7 +9,19 @@
       <h1>个人中心</h1>
     </div>
     
-    <div class="profile-content">
+    <div v-if="loading" class="profile-content">
+      <div class="glass-card profile-card">
+        <el-skeleton :rows="10" animated />
+      </div>
+      <div class="glass-card token-card">
+        <el-skeleton :rows="4" animated />
+      </div>
+      <div class="glass-card password-card">
+        <el-skeleton :rows="8" animated />
+      </div>
+    </div>
+
+    <div v-else class="profile-content">
       <!-- 基本信息 -->
       <div class="glass-card profile-card">
         <div class="card-header">
@@ -36,22 +48,25 @@
                   </div>
                 </div>
               </el-upload>
-              <div class="avatar-input-wrapper">
-                <div class="input-box">
-                  <el-input 
-                    v-model="form.avatar" 
-                    placeholder="或输入图片链接" 
-                    class="acid-input"
-                  />
-                </div>
-                <div class="helper-text">支持 JPG/PNG/GIF/WEBP &lt; 2MB</div>
-              </div>
+              <div class="avatar-tips">支持 JPG/PNG/GIF/WEBP &lt; 2MB</div>
             </div>
           </el-form-item>
           
           <el-form-item label="用户名">
             <div class="input-box">
               <el-input :value="user?.username" disabled class="acid-input" />
+            </div>
+          </el-form-item>
+
+          <el-form-item label="昵称">
+            <div class="input-box">
+              <el-input
+                v-model="form.nickname"
+                placeholder="用于展示的昵称"
+                maxlength="50"
+                show-word-limit
+                class="acid-input"
+              />
             </div>
           </el-form-item>
           
@@ -84,7 +99,11 @@
         
         <div class="token-display">
           <div class="token-box">
-            <span class="token-text">{{ showToken ? botToken : '••••••••••••••••••••••••••••••••' }}</span>
+            <span class="token-text">{{
+              showToken
+                ? (botToken || '本地未找到 Token（重新登录后会自动保存，或点击「重置 Token」生成新的）')
+                : '••••••••••••••••••••••••••••••••'
+            }}</span>
           </div>
           <div class="token-actions">
             <button class="icon-btn" @click="showToken = !showToken" title="切换显示">
@@ -98,7 +117,8 @@
         
         <div class="regenerate-section">
           <button class="acid-btn danger small" @click="refreshToken">
-            🔄 重置 Token
+            <el-icon><Refresh /></el-icon>
+            重置 Token
           </button>
           <span class="helper-text">旧 Token 将立即失效</span>
         </div>
@@ -154,13 +174,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+defineOptions({ name: 'FrontProfile' })
+
+import { ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, DocumentCopy, View, Hide, Upload } from '@element-plus/icons-vue'
-import { getCurrentUser, updateProfile, refreshBotToken, changeUserPassword, uploadAvatar } from '../../api'
+import { ArrowLeft, DocumentCopy, View, Hide, Upload, Refresh } from '@element-plus/icons-vue'
+import { getBotToken, getCurrentUser, updateProfile, refreshBotToken, changeUserPassword, uploadAvatar } from '../../api'
+import { getCurrentUserCache, setCurrentUserCache } from '../../state/dataCache'
 
 const user = ref(null)
-const loading = ref(false)
+const loading = ref(true)
 const saving = ref(false)
 const showToken = ref(false)
 const botToken = ref('')
@@ -168,6 +191,7 @@ const changingPassword = ref(false)
 const uploading = ref(false)
 
 const form = ref({
+  nickname: '',
   avatar: '',
   persona: ''
 })
@@ -181,10 +205,27 @@ const passwordForm = ref({
 const loadUser = async () => {
   loading.value = true
   try {
-    user.value = await getCurrentUser()
+    const cached = getCurrentUserCache()
+    if (cached) {
+      user.value = cached
+    } else {
+      const res = await getCurrentUser()
+      user.value = setCurrentUserCache(res)
+    }
     form.value.avatar = user.value.avatar || ''
+    form.value.nickname = user.value.nickname || ''
     form.value.persona = user.value.persona || ''
+
     botToken.value = localStorage.getItem('bot_token') || ''
+    if (!botToken.value) {
+      try {
+        const tokenRes = await getBotToken()
+        botToken.value = tokenRes.token || ''
+        if (botToken.value) localStorage.setItem('bot_token', botToken.value)
+      } catch (e) {
+        // ignore
+      }
+    }
   } catch (error) {
     ElMessage.error('加载用户信息失败')
   } finally {
@@ -195,9 +236,18 @@ const loadUser = async () => {
 const saveProfile = async () => {
   saving.value = true
   try {
-    await updateProfile(form.value)
+    const res = await updateProfile(form.value)
+    const cached = getCurrentUserCache()
+    if (cached) {
+      Object.assign(cached, res)
+      user.value = setCurrentUserCache(cached)
+    } else {
+      user.value = setCurrentUserCache(res)
+    }
+    form.value.avatar = user.value.avatar || ''
+    form.value.nickname = user.value.nickname || ''
+    form.value.persona = user.value.persona || ''
     ElMessage.success('保存成功')
-    loadUser()
   } catch (error) {
     ElMessage.error(error.response?.data?.detail || '保存失败')
   } finally {
@@ -206,6 +256,10 @@ const saveProfile = async () => {
 }
 
 const copyToken = () => {
+  if (!botToken.value) {
+    ElMessage.warning('本地未找到 Token，请重新登录或点击「重置 Token」生成')
+    return
+  }
   navigator.clipboard.writeText(botToken.value)
   ElMessage.success('Token 已复制到剪贴板')
 }
@@ -277,6 +331,7 @@ const handleAvatarUpload = async (options) => {
     const res = await uploadAvatar(options.file)
     form.value.avatar = res.avatar
     user.value.avatar = res.avatar
+    setCurrentUserCache(user.value)
     ElMessage.success('头像上传成功')
   } catch (error) {
     ElMessage.error(error.response?.data?.detail || '上传失败')
@@ -285,9 +340,7 @@ const handleAvatarUpload = async (options) => {
   }
 }
 
-onMounted(() => {
-  loadUser()
-})
+loadUser()
 </script>
 
 <style lang="scss" scoped>
@@ -373,6 +426,16 @@ onMounted(() => {
   display: flex;
   align-items: center; /* 垂直居中 */
   gap: 24px;
+}
+
+.avatar-tips {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: monospace;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .avatar-wrapper {
@@ -542,6 +605,9 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
   transition: all 0.2s ease;
   text-transform: uppercase;
@@ -607,6 +673,23 @@ onMounted(() => {
     &::placeholder {
       color: var(--text-disabled);
     }
+  }
+
+  .el-input__count {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 0 8px;
+    height: 20px;
+    line-height: 18px;
+    color: var(--text-tertiary);
+    font-family: monospace;
+    font-size: 12px;
+  }
+
+  .el-input__count-inner {
+    background: transparent;
+    color: inherit;
   }
 }
 </style>

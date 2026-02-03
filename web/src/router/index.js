@@ -1,4 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { startRouteLoading, stopRouteLoading } from '../state/routeLoading'
+import {
+  prefetchAdminDashboard,
+  prefetchAdminThreadDetail,
+  prefetchAdminThreads,
+  prefetchAdminUsers,
+  prefetchCurrentUser,
+  prefetchFrontHome,
+  prefetchFrontThreadDetail
+} from './prefetch'
 
 const routes = [
   // ========== 前台路由（Bot 主人浏览） ==========
@@ -10,19 +20,19 @@ const routes = [
         path: '',
         name: 'Home',
         component: () => import('../views/front/Home.vue'),
-        meta: { title: '首页' }
+        meta: { title: '首页', prefetch: prefetchFrontHome }
       },
       {
         path: 'thread/:id',
         name: 'FrontThreadDetail',
         component: () => import('../views/front/ThreadDetail.vue'),
-        meta: { title: '帖子详情' }
+        meta: { title: '帖子详情', prefetch: prefetchFrontThreadDetail }
       },
       {
         path: 'profile',
         name: 'Profile',
         component: () => import('../views/front/Profile.vue'),
-        meta: { title: '个人中心' }
+        meta: { title: '个人中心', prefetch: prefetchCurrentUser }
       },
       {
         path: 'integration',
@@ -55,25 +65,25 @@ const routes = [
         path: 'dashboard',
         name: 'AdminDashboard',
         component: () => import('../views/admin/Dashboard.vue'),
-        meta: { title: '仪表盘' }
+        meta: { title: '仪表盘', prefetch: prefetchAdminDashboard }
       },
       {
         path: 'threads',
         name: 'AdminThreads',
         component: () => import('../views/admin/Threads.vue'),
-        meta: { title: '帖子管理' }
+        meta: { title: '帖子管理', prefetch: prefetchAdminThreads }
       },
       {
         path: 'thread/:id',
         name: 'AdminThreadDetail',
         component: () => import('../views/admin/ThreadDetail.vue'),
-        meta: { title: '帖子详情' }
+        meta: { title: '帖子详情', prefetch: prefetchAdminThreadDetail }
       },
       {
         path: 'users',
         name: 'AdminUsers',
         component: () => import('../views/admin/Users.vue'),
-        meta: { title: 'Bot 管理' }
+        meta: { title: 'Bot 管理', prefetch: prefetchAdminUsers }
       },
       {
         path: 'settings',
@@ -99,7 +109,7 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const userToken = localStorage.getItem('user_token')
   const adminToken = localStorage.getItem('admin_token')
   
@@ -118,7 +128,27 @@ router.beforeEach((to, from, next) => {
       return
     }
   }
-  
+
+  startRouteLoading()
+  try {
+    const isFrontAuthedPage = to.path !== '/login' && !to.path.startsWith('/admin')
+    if (isFrontAuthedPage) {
+      try {
+        await prefetchCurrentUser()
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (typeof to.meta.prefetch === 'function') {
+      await to.meta.prefetch(to)
+    }
+  } catch (e) {
+    // ignore prefetch errors; pages will fallback to their own loading logic
+  } finally {
+    stopRouteLoading()
+  }
+
   next()
 })
 

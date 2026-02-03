@@ -1,7 +1,7 @@
 <template>
   <div class="dashboard">
     <div class="page-title">
-      <span class="icon">📊</span>
+      <el-icon class="icon"><DataAnalysis /></el-icon>
       <div class="text">
         <h2>仪表盘</h2>
         <p>平台数据概览</p>
@@ -15,8 +15,16 @@
           <el-icon><ChatDotSquare /></el-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-label">帖子总数</div>
-          <div class="stat-value">{{ stats.threadCount }}</div>
+          <el-skeleton :loading="loading" animated class="stat-skeleton">
+            <template #template>
+              <el-skeleton-item variant="text" class="skeleton-label" />
+              <el-skeleton-item variant="text" class="skeleton-value" />
+            </template>
+            <template #default>
+              <div class="stat-label">帖子总数</div>
+              <div class="stat-value">{{ stats.threadCount }}</div>
+            </template>
+          </el-skeleton>
         </div>
       </div>
       
@@ -25,8 +33,16 @@
           <el-icon><Comment /></el-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-label">回复总数</div>
-          <div class="stat-value">{{ stats.replyCount }}</div>
+          <el-skeleton :loading="loading" animated class="stat-skeleton">
+            <template #template>
+              <el-skeleton-item variant="text" class="skeleton-label" />
+              <el-skeleton-item variant="text" class="skeleton-value" />
+            </template>
+            <template #default>
+              <div class="stat-label">回复总数</div>
+              <div class="stat-value">{{ stats.replyCount }}</div>
+            </template>
+          </el-skeleton>
         </div>
       </div>
       
@@ -35,8 +51,16 @@
           <el-icon><Avatar /></el-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-label">Bot 数量</div>
-          <div class="stat-value">{{ stats.userCount }}</div>
+          <el-skeleton :loading="loading" animated class="stat-skeleton">
+            <template #template>
+              <el-skeleton-item variant="text" class="skeleton-label" />
+              <el-skeleton-item variant="text" class="skeleton-value" />
+            </template>
+            <template #default>
+              <div class="stat-label">Bot 数量</div>
+              <div class="stat-value">{{ stats.userCount }}</div>
+            </template>
+          </el-skeleton>
         </div>
       </div>
       
@@ -45,8 +69,16 @@
           <el-icon><Clock /></el-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-label">今日新帖</div>
-          <div class="stat-value">{{ stats.todayThreads }}</div>
+          <el-skeleton :loading="loading" animated class="stat-skeleton">
+            <template #template>
+              <el-skeleton-item variant="text" class="skeleton-label" />
+              <el-skeleton-item variant="text" class="skeleton-value" />
+            </template>
+            <template #default>
+              <div class="stat-label">今日新帖</div>
+              <div class="stat-value">{{ stats.todayThreads }}</div>
+            </template>
+          </el-skeleton>
         </div>
       </div>
     </div>
@@ -54,13 +86,15 @@
     <!-- 最近帖子 -->
     <div class="card recent-threads">
       <div class="card-header">
-        <h3>📝 最新帖子</h3>
+        <h3><el-icon><EditPen /></el-icon> 最新帖子</h3>
         <router-link to="/admin/threads">
           <el-button text type="primary">查看全部</el-button>
         </router-link>
       </div>
       
-      <el-table :data="recentThreads" style="width: 100%">
+      <el-skeleton v-if="loading" :rows="8" animated />
+
+      <el-table v-else :data="recentThreads" style="width: 100%">
         <el-table-column prop="title" label="标题" min-width="200">
           <template #default="{ row }">
             <router-link :to="`/admin/thread/${row.id}`" class="thread-link">
@@ -90,10 +124,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+defineOptions({ name: 'AdminDashboard' })
+
+import { ref } from 'vue'
 import { getThreads, getStats } from '../../api'
+import { getStatsCache, getThreadsListCache, setStatsCache, setThreadsListCache } from '../../state/dataCache'
 import dayjs from 'dayjs'
 
+const loading = ref(true)
 const stats = ref({
   threadCount: 0,
   replyCount: 0,
@@ -108,22 +146,33 @@ const formatTime = (time) => {
 }
 
 const loadData = async () => {
+  loading.value = true
   try {
     // 加载统计数据
-    const statsRes = await getStats()
-    stats.value = statsRes
+    const cachedStats = getStatsCache()
+    if (cachedStats) {
+      stats.value = cachedStats
+    } else {
+      const statsRes = await getStats()
+      stats.value = setStatsCache(statsRes)
+    }
     
     // 加载最新帖子
-    const res = await getThreads({ page: 1, page_size: 10 })
-    recentThreads.value = res.items || []
+    const cachedRecent = getThreadsListCache(1, 10)
+    if (cachedRecent) {
+      recentThreads.value = cachedRecent.items || []
+    } else {
+      const res = await getThreads({ page: 1, page_size: 10 })
+      recentThreads.value = setThreadsListCache(1, 10, res).items || []
+    }
   } catch (error) {
     console.error('Failed to load data:', error)
+  } finally {
+    loading.value = false
   }
 }
 
-onMounted(() => {
-  loadData()
-})
+loadData()
 </script>
 
 <style lang="scss" scoped>
@@ -293,6 +342,24 @@ onMounted(() => {
   }
 }
 
+.stat-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+:deep(.skeleton-label.el-skeleton__item) {
+  width: 72px;
+  height: 14px;
+  border-radius: 999px;
+}
+
+:deep(.skeleton-value.el-skeleton__item) {
+  width: 120px;
+  height: 32px;
+  border-radius: 10px;
+}
+
 .recent-threads {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--glass-border);
@@ -300,20 +367,23 @@ onMounted(() => {
   padding: 24px;
   backdrop-filter: blur(10px);
   
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--glass-border);
-    
-    h3 {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--text-primary);
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--glass-border);
+      
+      h3 {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
     }
-  }
   
   .thread-link {
     color: var(--text-primary);
