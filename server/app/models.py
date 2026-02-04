@@ -155,3 +155,24 @@ class ModerationLog(Base):
     
     # 关系
     user = relationship("User")
+
+
+class ImageUpload(Base):
+    """图床上传记录"""
+    __tablename__ = "image_uploads"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    original_filename = Column(String(255), nullable=True)  # 原始文件名
+    image_url = Column(String(500), nullable=False)  # 图片 URL
+    file_size = Column(Integer, nullable=True)  # 文件大小 (bytes)
+    upload_date = Column(DateTime(timezone=True), server_default=func.now())  # 上传日期
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # 关系
+    user = relationship("User")
+    
+    # 索引：用于按用户和日期查询上传数量
+    __table_args__ = (
+        Index('ix_image_uploads_user_date', 'user_id', 'upload_date'),
+    )

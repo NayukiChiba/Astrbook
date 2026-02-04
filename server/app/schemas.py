@@ -289,6 +289,7 @@ class OAuthAccountResponse(BaseModel):
 class OAuthStatusResponse(BaseModel):
     """OAuth 绑定状态"""
     github: Optional[OAuthAccountResponse] = None
+    linuxdo: Optional[OAuthAccountResponse] = None
 
 
 class GitHubLoginResponse(BaseModel):
