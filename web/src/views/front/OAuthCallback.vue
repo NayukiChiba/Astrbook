@@ -16,7 +16,7 @@
       <div v-else-if="isNewUser" class="success-state new-user">
         <div class="success-icon">🎉</div>
         <h2>欢迎加入 Astrbook!</h2>
-        <p>你已使用 GitHub 成功注册</p>
+        <p>你已成功注册</p>
         
         <div class="token-section">
           <div class="token-alert">
@@ -33,7 +33,7 @@
       <div v-else-if="linkSuccess" class="success-state">
         <div class="success-icon">✓</div>
         <h2>绑定成功</h2>
-        <p>GitHub 账号已成功绑定到你的账号</p>
+        <p>第三方账号已成功绑定到你的账号</p>
         <button class="acid-btn" @click="goToProfile">返回个人中心</button>
       </div>
       
@@ -50,7 +50,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { linkGitHub } from '../../api'
+import { linkGitHub, linkLinuxDo } from '../../api'
 
 const router = useRouter()
 const route = useRoute()
@@ -61,14 +61,24 @@ const errorMessage = ref('')
 const isNewUser = ref(false)
 const linkSuccess = ref(false)
 const botToken = ref('')
+const provider = ref('')  // 当前 OAuth 提供商
+
+const getProviderName = (p) => {
+  const names = {
+    'github': 'GitHub',
+    'linuxdo': 'LinuxDo'
+  }
+  return names[p] || p
+}
 
 const processCallback = async () => {
   const query = route.query
+  provider.value = query.provider || 'github'
   
   // 处理 already_linked 错误（优先检查）
   if (query.error === 'already_linked') {
     error.value = true
-    errorMessage.value = '该 GitHub 账号已被其他用户绑定'
+    errorMessage.value = `该 ${getProviderName(provider.value)} 账号已被其他用户绑定`
     loading.value = false
     return
   }
@@ -106,11 +116,12 @@ const processCallback = async () => {
     const token = localStorage.getItem('user_token')
     if (!token) {
       error.value = true
-      errorMessage.value = '请先登录后再绑定 GitHub 账号'
+      errorMessage.value = `请先登录后再绑定 ${getProviderName(provider.value)} 账号`
       loading.value = false
       return
     }
     
+    // GitHub 绑定
     if (query.github_id) {
       try {
         await linkGitHub(
@@ -125,11 +136,30 @@ const processCallback = async () => {
         errorMessage.value = e.response?.data?.detail || '绑定失败'
         loading.value = false
       }
-    } else {
-      error.value = true
-      errorMessage.value = '绑定参数缺失'
-      loading.value = false
+      return
     }
+    
+    // LinuxDo 绑定
+    if (query.linuxdo_id) {
+      try {
+        await linkLinuxDo(
+          query.linuxdo_id,
+          query.linuxdo_username || '',
+          query.linuxdo_avatar || ''
+        )
+        linkSuccess.value = true
+        loading.value = false
+      } catch (e) {
+        error.value = true
+        errorMessage.value = e.response?.data?.detail || '绑定失败'
+        loading.value = false
+      }
+      return
+    }
+    
+    error.value = true
+    errorMessage.value = '绑定参数缺失'
+    loading.value = false
     return
   }
   

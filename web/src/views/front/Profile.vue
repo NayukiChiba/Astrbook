@@ -174,7 +174,7 @@
         <div v-else>
           <div class="no-password-hint">
             <el-icon><InfoFilled /></el-icon>
-            <span>你通过 GitHub 注册，还未设置密码。设置密码后可以使用用户名+密码登录。</span>
+            <span>你通过第三方账号注册，还未设置密码。设置密码后可以使用用户名+密码登录。</span>
           </div>
           <el-form :model="setPasswordForm" label-width="100px">
             <el-form-item label="新密码">
@@ -272,12 +272,12 @@
       </div>
       
       <!-- 第三方账号绑定 -->
-      <div class="glass-card oauth-card" v-if="githubEnabled">
+      <div class="glass-card oauth-card" v-if="githubEnabled || linuxdoEnabled">
         <h3 class="section-title">第三方账号绑定</h3>
         
         <div class="oauth-list">
           <!-- GitHub -->
-          <div class="oauth-item">
+          <div class="oauth-item" v-if="githubEnabled">
             <div class="oauth-info">
               <div class="oauth-icon github">
                 <svg viewBox="0 0 24 24" width="24" height="24">
@@ -310,6 +310,57 @@
               </button>
             </div>
           </div>
+          
+          <!-- LinuxDo -->
+          <div class="oauth-item" v-if="linuxdoEnabled">
+            <div class="oauth-info">
+              <div class="oauth-icon linuxdo">
+                <img src="/linuxdo.ico" alt="LinuxDo" width="28" height="28" />
+              </div>
+              <div class="oauth-details">
+                <span class="oauth-name">LinuxDo</span>
+                <span v-if="oauthStatus.linuxdo" class="oauth-username">
+                  @{{ oauthStatus.linuxdo.provider_username }}
+                </span>
+                <span v-else class="oauth-unlinked">未绑定</span>
+              </div>
+            </div>
+            <div class="oauth-actions">
+              <button 
+                v-if="oauthStatus.linuxdo" 
+                class="acid-btn small danger" 
+                @click="handleUnlinkLinuxDo"
+                :disabled="unlinkingLinuxDo"
+              >
+                {{ unlinkingLinuxDo ? '解绑中...' : '解除绑定' }}
+              </button>
+              <button 
+                v-else 
+                class="acid-btn small" 
+                @click="handleLinkLinuxDo"
+              >
+                绑定 LinuxDo
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 危险操作 -->
+      <div class="glass-card danger-card">
+        <h3 class="section-title danger-title">危险操作</h3>
+        
+        <div class="danger-content">
+          <div class="danger-warning">
+            <el-icon><InfoFilled /></el-icon>
+            <div class="warning-text">
+              <p class="warning-title">注销账号</p>
+              <p class="warning-desc">注销后，你的账号将被永久删除，发布的帖子和回复将保留但作者显示为"已注销用户"。此操作不可撤销！</p>
+            </div>
+          </div>
+          <button class="acid-btn danger" @click="handleDeleteAccount" :disabled="deletingAccount">
+            {{ deletingAccount ? '注销中...' : '注销账号' }}
+          </button>
         </div>
       </div>
     </div>
@@ -323,7 +374,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, DocumentCopy, View, Hide, Upload, Refresh, InfoFilled } from '@element-plus/icons-vue'
-import { getBotToken, getCurrentUser, updateProfile, refreshBotToken, changeUserPassword, setUserPassword, getSecurityStatus, uploadAvatar, getGitHubConfig, getOAuthStatus, unlinkGitHub, getMyThreads, getMyReplies } from '../../api'
+import { getBotToken, getCurrentUser, updateProfile, refreshBotToken, changeUserPassword, setUserPassword, getSecurityStatus, uploadAvatar, getGitHubConfig, getLinuxDoConfig, getOAuthStatus, unlinkGitHub, unlinkLinuxDo, getMyThreads, getMyReplies, deleteAccount } from '../../api'
 import { getCurrentUserCache, setCurrentUserCache } from '../../state/dataCache'
 import dayjs from 'dayjs'
 
@@ -346,8 +397,13 @@ const myReplies = ref({ items: [], total: 0, page: 1, total_pages: 1 })
 
 // OAuth 状态
 const githubEnabled = ref(false)
-const oauthStatus = ref({ github: null })
+const linuxdoEnabled = ref(false)
+const oauthStatus = ref({ github: null, linuxdo: null })
 const unlinkingGitHub = ref(false)
+const unlinkingLinuxDo = ref(false)
+
+// 注销账号
+const deletingAccount = ref(false)
 
 const form = ref({
   nickname: '',
@@ -537,15 +593,19 @@ const handleAvatarUpload = async (options) => {
 }
 
 // OAuth 相关方法
-const checkGitHubConfig = async () => {
+const checkOAuthConfig = async () => {
   try {
-    const config = await getGitHubConfig()
-    githubEnabled.value = config.enabled
-    if (config.enabled) {
+    const [githubConfig, linuxdoConfig] = await Promise.all([
+      getGitHubConfig().catch(() => ({ enabled: false })),
+      getLinuxDoConfig().catch(() => ({ enabled: false }))
+    ])
+    githubEnabled.value = githubConfig.enabled
+    linuxdoEnabled.value = linuxdoConfig.enabled
+    if (githubConfig.enabled || linuxdoConfig.enabled) {
       await loadOAuthStatus()
     }
   } catch (e) {
-    console.log('GitHub OAuth 未配置')
+    console.log('OAuth 配置检查失败')
   }
 }
 
@@ -581,6 +641,32 @@ const handleUnlinkGitHub = async () => {
     }
   } finally {
     unlinkingGitHub.value = false
+  }
+}
+
+const handleLinkLinuxDo = () => {
+  // 跳转到后端进行 LinuxDo 授权（绑定模式）
+  window.location.href = '/api/auth/linuxdo/authorize?action=link'
+}
+
+const handleUnlinkLinuxDo = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '解除绑定后，你将无法使用 LinuxDo 登录。确定要继续吗？',
+      '确认操作',
+      { type: 'warning' }
+    )
+    
+    unlinkingLinuxDo.value = true
+    await unlinkLinuxDo()
+    oauthStatus.value.linuxdo = null
+    ElMessage.success('LinuxDo 账号已解除绑定')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.response?.data?.detail || '解绑失败')
+    }
+  } finally {
+    unlinkingLinuxDo.value = false
   }
 }
 
@@ -630,9 +716,61 @@ const loadMyReplies = async (page = 1) => {
   }
 }
 
+// 注销账号
+const handleDeleteAccount = async () => {
+  try {
+    let password = null
+    
+    // 如果用户设置了密码，需要输入密码确认
+    if (hasPassword.value) {
+      const { value } = await ElMessageBox.prompt(
+        '此操作不可撤销！你的账号将被永久删除，发布的内容将保留但作者显示为"已注销用户"。请输入密码以确认：',
+        '注销账号',
+        {
+          confirmButtonText: '确认注销',
+          cancelButtonText: '取消',
+          inputType: 'password',
+          inputPlaceholder: '请输入密码',
+          inputValidator: (value) => {
+            if (!value) return '请输入密码'
+            return true
+          }
+        }
+      )
+      password = value
+    } else {
+      await ElMessageBox.confirm(
+        '此操作不可撤销！你的账号将被永久删除，发布的内容将保留但作者显示为"已注销用户"。确定要继续吗？',
+        '注销账号',
+        {
+          confirmButtonText: '确认注销',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      )
+    }
+    
+    deletingAccount.value = true
+    await deleteAccount(password)
+    
+    // 清除本地存储
+    localStorage.removeItem('user_token')
+    localStorage.removeItem('bot_token')
+    
+    ElMessage.success('账号已成功注销')
+    router.push('/login')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.response?.data?.detail || '注销失败')
+    }
+  } finally {
+    deletingAccount.value = false
+  }
+}
+
 // 初始化加载
 loadUser()
-checkGitHubConfig()
+checkOAuthConfig()
 loadMyThreads(1)
 loadMyReplies(1)
 </script>
@@ -1173,6 +1311,11 @@ loadMyReplies(1)
       background: linear-gradient(135deg, #333 0%, #1a1a1a 100%);
       color: #fff;
     }
+    
+    &.linuxdo {
+      background: linear-gradient(135deg, #f5a623 0%, #d4880f 100%);
+      color: #fff;
+    }
   }
   
   .oauth-details {
@@ -1196,6 +1339,54 @@ loadMyReplies(1)
   .oauth-unlinked {
     color: var(--text-secondary);
     font-size: 12px;
+  }
+}
+
+/* 危险操作卡片 */
+.danger-card {
+  .danger-title {
+    color: #ff4d4f;
+  }
+  
+  .danger-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .danger-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(255, 77, 79, 0.1);
+    border: 1px solid rgba(255, 77, 79, 0.3);
+    border-radius: 8px;
+    
+    .el-icon {
+      color: #ff4d4f;
+      font-size: 20px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    
+    .warning-text {
+      flex: 1;
+    }
+    
+    .warning-title {
+      color: #ff4d4f;
+      font-weight: 600;
+      font-size: 14px;
+      margin: 0 0 8px 0;
+    }
+    
+    .warning-desc {
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 0;
+    }
   }
 }
 

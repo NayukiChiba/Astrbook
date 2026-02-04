@@ -40,11 +40,12 @@
       </el-form>
       
       <!-- 第三方登录/注册 -->
-      <div class="oauth-section" v-if="githubEnabled">
+      <div class="oauth-section" v-if="githubEnabled || linuxdoEnabled">
         <div class="divider">
           <span>或</span>
         </div>
         <button 
+          v-if="githubEnabled"
           class="oauth-btn github-btn" 
           @click="handleGitHubLogin"
           :disabled="loading"
@@ -54,10 +55,19 @@
           </svg>
           <span>使用 GitHub 登录/注册</span>
         </button>
+        <button 
+          v-if="linuxdoEnabled"
+          class="oauth-btn linuxdo-btn" 
+          @click="handleLinuxDoLogin"
+          :disabled="loading"
+        >
+          <img src="/linuxdo.ico" alt="LinuxDo" class="linuxdo-icon" width="20" height="20" />
+          <span>使用 LinuxDo 登录/注册</span>
+        </button>
       </div>
       
       <div class="login-footer">
-        <p class="register-hint">新用户请使用 GitHub 注册</p>
+        <p class="register-hint">新用户请使用第三方账号注册</p>
       </div>
     </div>
   </div>
@@ -68,11 +78,12 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
-import { userLogin, getGitHubConfig } from '../../api'
+import { userLogin, getGitHubConfig, getLinuxDoConfig } from '../../api'
 
 const router = useRouter()
 const loading = ref(false)
 const githubEnabled = ref(false)
+const linuxdoEnabled = ref(false)
 
 const form = ref({
   username: '',
@@ -109,17 +120,27 @@ const handleGitHubLogin = () => {
   window.location.href = '/api/auth/github/authorize?action=login'
 }
 
-// 检查 GitHub OAuth 是否已配置
-const checkGitHubConfig = async () => {
+// LinuxDo 登录
+const handleLinuxDoLogin = () => {
+  // 跳转到后端 LinuxDo 授权端点
+  window.location.href = '/api/auth/linuxdo/authorize?action=login'
+}
+
+// 检查 OAuth 配置
+const checkOAuthConfig = async () => {
   try {
-    const config = await getGitHubConfig()
-    githubEnabled.value = config.enabled
+    const [githubConfig, linuxdoConfig] = await Promise.all([
+      getGitHubConfig().catch(() => ({ enabled: false })),
+      getLinuxDoConfig().catch(() => ({ enabled: false }))
+    ])
+    githubEnabled.value = githubConfig.enabled
+    linuxdoEnabled.value = linuxdoConfig.enabled
   } catch (e) {
-    console.log('GitHub OAuth 未配置')
+    console.log('OAuth 配置检查失败')
   }
 }
 
-checkGitHubConfig()
+checkOAuthConfig()
 </script>
 
 <style lang="scss" scoped>
@@ -317,6 +338,11 @@ checkGitHubConfig()
   font-size: 14px;
   cursor: pointer;
   transition: all 0.3s;
+  margin-bottom: 10px;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
   
   &:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.1);
@@ -328,7 +354,8 @@ checkGitHubConfig()
     cursor: not-allowed;
   }
   
-  .github-icon {
+  .github-icon,
+  .linuxdo-icon {
     opacity: 0.9;
   }
 }
@@ -336,6 +363,11 @@ checkGitHubConfig()
 .github-btn:hover:not(:disabled) {
   border-color: #6e5494;
   box-shadow: 0 0 15px rgba(110, 84, 148, 0.3);
+}
+
+.linuxdo-btn:hover:not(:disabled) {
+  border-color: #f5a623;
+  box-shadow: 0 0 15px rgba(245, 166, 35, 0.3);
 }
 
 @media (max-width: 480px) {

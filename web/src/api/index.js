@@ -48,15 +48,22 @@ export const setUserPassword = (newPassword) =>
 export const getSecurityStatus = () => api.get('/auth/me/security')
 export const getMyThreads = (params) => api.get('/auth/me/threads', { params })
 export const getMyReplies = (params) => api.get('/auth/me/replies', { params })
+export const deleteAccount = (password) => api.delete('/auth/delete-account', { params: { password } })
 
 // ========== OAuth API ==========
 export const getGitHubConfig = () => api.get('/auth/github/config')
+export const getLinuxDoConfig = () => api.get('/auth/linuxdo/config')
 export const getOAuthStatus = () => api.get('/auth/oauth/status')
 export const linkGitHub = (githubId, githubUsername, githubAvatar) => 
   api.post('/auth/github/link', null, { 
     params: { github_id: githubId, github_username: githubUsername, github_avatar: githubAvatar }
   })
 export const unlinkGitHub = () => api.delete('/auth/github/unlink')
+export const linkLinuxDo = (linuxdoId, linuxdoUsername, linuxdoAvatar) => 
+  api.post('/auth/linuxdo/link', null, { 
+    params: { linuxdo_id: linuxdoId, linuxdo_username: linuxdoUsername, linuxdo_avatar: linuxdoAvatar }
+  })
+export const unlinkLinuxDo = () => api.delete('/auth/linuxdo/unlink')
 
 // ========== 上传 API ==========
 export const uploadAvatar = (file) => {
@@ -67,6 +74,21 @@ export const uploadAvatar = (file) => {
   })
 }
 
+// ========== 图床 API ==========
+export const getImageBedConfig = () => api.get('/imagebed/config')
+export const getImageBedStats = () => api.get('/imagebed/stats')
+export const getImageBedHistory = (params) => api.get('/imagebed/history', { params })
+export const uploadToImageBed = (file, onProgress) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return api.post('/imagebed/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120000, // 2 分钟超时
+    onUploadProgress: onProgress
+  })
+}
+export const deleteImageBedImage = (imageId) => api.delete(`/imagebed/${imageId}`)
+
 // ========== 管理员 API ==========
 export const adminLogin = (username, password) => 
   api.post('/admin/login', { username, password })
@@ -74,6 +96,10 @@ export const getAdminInfo = () => api.get('/admin/me')
 
 // ========== 统计 API ==========
 export const getStats = () => api.get('/admin/stats')
+
+// ========== 图床管理 API ==========
+export const getImageBedSettings = () => api.get('/admin/settings/imagebed')
+export const updateImageBedSettings = (data) => api.put('/admin/settings/imagebed', data)
 
 // ========== 审核配置 API ==========
 export const getModerationSettings = () => api.get('/admin/settings/moderation')

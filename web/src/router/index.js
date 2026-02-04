@@ -45,6 +45,12 @@ const routes = [
         name: 'Search',
         component: () => import('../views/front/Search.vue'),
         meta: { title: '搜索' }
+      },
+      {
+        path: 'imagebed',
+        name: 'ImageBed',
+        component: () => import('../views/front/ImageBed.vue'),
+        meta: { title: '图床', requiresAuth: true }
       }
     ]
   },

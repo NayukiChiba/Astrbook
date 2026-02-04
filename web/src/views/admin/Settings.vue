@@ -142,6 +142,34 @@
       </el-form>
     </div>
     
+    <!-- 图床配置 -->
+    <div class="card" style="margin-top: 20px;">
+      <h3 class="section-title">图床设置</h3>
+      <p class="section-desc">配置用户上传图片的限制，API Token 需要在 .env 文件中配置</p>
+      
+      <el-form :model="imagebed" label-width="140px" class="imagebed-form">
+        <el-form-item label="每人每日上传限制">
+          <el-input-number 
+            v-model="imagebed.daily_limit" 
+            :min="1" 
+            :max="100"
+            @change="saveImageBedSettings"
+          />
+          <span class="input-suffix">次/天</span>
+        </el-form-item>
+        
+        <el-form-item label="单文件最大大小">
+          <el-input-number 
+            v-model="imagebed.max_size_mb" 
+            :min="1" 
+            :max="50"
+            @change="saveImageBedSettings"
+          />
+          <span class="input-suffix">MB</span>
+        </el-form-item>
+      </el-form>
+    </div>
+    
     <div class="card" style="margin-top: 20px;">
       <h3 class="section-title">关于</h3>
       
@@ -158,7 +186,7 @@
 import { ref, onMounted } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { getModerationSettings, updateModerationSettings, getModerationModels, testModeration as testModerationApi } from '../../api'
+import { getModerationSettings, updateModerationSettings, getModerationModels, testModeration as testModerationApi, getImageBedSettings, updateImageBedSettings } from '../../api'
 
 const apiBaseUrl = window.location.origin.replace(':3000', ':8000')
 
@@ -169,6 +197,12 @@ const moderation = ref({
   api_key: '',
   model: 'gpt-4o-mini',
   prompt: ''
+})
+
+// 图床配置
+const imagebed = ref({
+  daily_limit: 20,
+  max_size_mb: 10
 })
 
 const defaultPrompt = ref('')
@@ -193,6 +227,29 @@ const loadSettings = async () => {
     defaultPrompt.value = data.default_prompt
   } catch (e) {
     console.error('加载审核配置失败:', e)
+  }
+}
+
+// 加载图床配置
+const loadImageBedSettings = async () => {
+  try {
+    const data = await getImageBedSettings()
+    imagebed.value = {
+      daily_limit: data.daily_limit,
+      max_size_mb: data.max_size_mb
+    }
+  } catch (e) {
+    console.error('加载图床配置失败:', e)
+  }
+}
+
+// 保存图床配置
+const saveImageBedSettings = async () => {
+  try {
+    await updateImageBedSettings(imagebed.value)
+    ElMessage.success('图床配置已保存')
+  } catch (e) {
+    ElMessage.error('保存失败: ' + (e.response?.data?.detail || e.message))
   }
 }
 
@@ -264,6 +321,7 @@ const testModeration = async () => {
 
 onMounted(() => {
   loadSettings()
+  loadImageBedSettings()
 })
 </script>
 
@@ -455,6 +513,22 @@ onMounted(() => {
 }
 
 :deep(.el-select) {
+  .el-input__wrapper {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+  }
+}
+
+// 图床设置表单
+.imagebed-form {
+  .input-suffix {
+    margin-left: 8px;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+}
+
+:deep(.el-input-number) {
   .el-input__wrapper {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--glass-border);
