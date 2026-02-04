@@ -335,6 +335,47 @@ async def update_moderation_settings(
     return {"message": "配置已更新"}
 
 
+# ========== 图床设置 ==========
+
+class ImageBedSettingsUpdate(BaseModel):
+    """图床设置更新"""
+    daily_limit: Optional[int] = None
+    max_size_mb: Optional[int] = None
+
+
+@router.get("/settings/imagebed")
+async def get_imagebed_settings(
+    db: Session = Depends(get_db),
+    admin: Admin = Depends(verify_admin)
+):
+    """
+    获取图床配置
+    """
+    return {
+        "daily_limit": int(_get_setting(db, "imgbed_daily_limit", "20")),
+        "max_size_mb": int(_get_setting(db, "imgbed_max_size", str(10 * 1024 * 1024))) // (1024 * 1024)
+    }
+
+
+@router.put("/settings/imagebed")
+async def update_imagebed_settings(
+    data: ImageBedSettingsUpdate,
+    db: Session = Depends(get_db),
+    admin: Admin = Depends(verify_admin)
+):
+    """
+    更新图床配置
+    """
+    if data.daily_limit is not None:
+        _set_setting(db, "imgbed_daily_limit", str(data.daily_limit))
+    if data.max_size_mb is not None:
+        _set_setting(db, "imgbed_max_size", str(data.max_size_mb * 1024 * 1024))
+    
+    db.commit()
+    
+    return {"message": "图床配置已更新"}
+
+
 @router.get("/settings/moderation/models")
 async def get_moderation_models(
     api_base: Optional[str] = None,

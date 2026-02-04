@@ -321,8 +321,14 @@ async def get_oauth_status(
         OAuthAccount.provider == "github"
     ).first()
     
+    linuxdo_oauth = db.query(OAuthAccount).filter(
+        OAuthAccount.user_id == current_user.id,
+        OAuthAccount.provider == "linuxdo"
+    ).first()
+    
     return OAuthStatusResponse(
-        github=OAuthAccountResponse.model_validate(github_oauth) if github_oauth else None
+        github=OAuthAccountResponse.model_validate(github_oauth) if github_oauth else None,
+        linuxdo=OAuthAccountResponse.model_validate(linuxdo_oauth) if linuxdo_oauth else None
     )
 
 
@@ -334,4 +340,300 @@ async def get_github_config():
     return {
         "enabled": bool(settings.GITHUB_CLIENT_ID and settings.GITHUB_CLIENT_SECRET),
         "client_id": settings.GITHUB_CLIENT_ID[:8] + "..." if settings.GITHUB_CLIENT_ID else None
+    }
+
+
+# ==================== LinuxDo OAuth ====================
+
+@router.get("/linuxdo/authorize")
+async def linuxdo_authorize(
+    action: str = Query("login", description="操作类型: login(登录/注册) 或 link(绑定)"),
+    redirect_uri: Optional[str] = Query(None, description="自定义回调后跳转的前端地址")
+):
+    """
+    发起 LinuxDo OAuth 授权
+    
+    - action=login: 使用 LinuxDo 登录或注册
+    - action=link: 绑定 LinuxDo 到当前账号（需要先登录）
+    """
+    if not settings.LINUXDO_CLIENT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="LinuxDo OAuth 未配置"
+        )
+    
+    # 生成防 CSRF 的 state
+    state = secrets.token_urlsafe(32)
+    oauth_states[state] = {
+        "action": action,
+        "redirect_uri": redirect_uri or settings.FRONTEND_URL
+    }
+    
+    # 构建 LinuxDo 授权 URL
+    params = {
+        "client_id": settings.LINUXDO_CLIENT_ID,
+        "redirect_uri": settings.LINUXDO_CALLBACK_URL,
+        "response_type": "code",
+        "state": state
+    }
+    
+    linuxdo_auth_url = f"https://connect.linux.do/oauth2/authorize?{urlencode(params)}"
+    return RedirectResponse(url=linuxdo_auth_url)
+
+
+@router.get("/linuxdo/callback")
+async def linuxdo_callback(
+    code: str = Query(..., description="LinuxDo 授权码"),
+    state: str = Query(..., description="状态验证码"),
+    db: Session = Depends(get_db)
+):
+    """
+    LinuxDo OAuth 回调
+    
+    处理 LinuxDo 授权后的回调，完成登录/注册或绑定
+    """
+    # 验证 state
+    state_data = oauth_states.pop(state, None)
+    if not state_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="无效的 state 参数，可能是 CSRF 攻击或授权已过期"
+        )
+    
+    action = state_data["action"]
+    redirect_uri = state_data["redirect_uri"]
+    
+    # 用 code 换取 access_token
+    async with httpx.AsyncClient() as client:
+        token_response = await client.post(
+            "https://connect.linux.do/oauth2/token",
+            data={
+                "client_id": settings.LINUXDO_CLIENT_ID,
+                "client_secret": settings.LINUXDO_CLIENT_SECRET,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": settings.LINUXDO_CALLBACK_URL
+            },
+            headers={"Accept": "application/json"}
+        )
+        
+        if token_response.status_code != 200:
+            return RedirectResponse(
+                url=f"{redirect_uri}/login?error=linuxdo_token_failed"
+            )
+        
+        token_data = token_response.json()
+        access_token = token_data.get("access_token")
+        
+        if not access_token:
+            error_desc = token_data.get("error_description", "获取 token 失败")
+            return RedirectResponse(
+                url=f"{redirect_uri}/login?error={error_desc}"
+            )
+        
+        # 获取 LinuxDo 用户信息
+        user_response = await client.get(
+            "https://connect.linux.do/api/user",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/json"
+            }
+        )
+        
+        if user_response.status_code != 200:
+            return RedirectResponse(
+                url=f"{redirect_uri}/login?error=linuxdo_user_failed"
+            )
+        
+        linuxdo_user = user_response.json()
+    
+    linuxdo_id = str(linuxdo_user.get("id", ""))
+    linuxdo_username = linuxdo_user.get("username", "")
+    linuxdo_avatar = linuxdo_user.get("avatar_url", "")
+    linuxdo_name = linuxdo_user.get("name", "") or linuxdo_username
+    
+    # 检查是否已有绑定的账号
+    existing_oauth = db.query(OAuthAccount).filter(
+        OAuthAccount.provider == "linuxdo",
+        OAuthAccount.provider_user_id == linuxdo_id
+    ).first()
+    
+    if action == "login":
+        # 登录/注册流程
+        if existing_oauth:
+            # 已绑定，直接登录
+            user = existing_oauth.user
+            access_token = generate_token(user.id, "user_session")
+            
+            return RedirectResponse(
+                url=f"{redirect_uri}/oauth/callback?access_token={access_token}&bot_token={user.token}&is_new=false&provider=linuxdo"
+            )
+        else:
+            # 未绑定，创建新用户
+            # 生成唯一用户名
+            base_username = f"ld_{linuxdo_username}"
+            username = base_username
+            counter = 1
+            while db.query(User).filter(User.username == username).first():
+                username = f"{base_username}_{counter}"
+                counter += 1
+            
+            # 创建用户
+            user = User(
+                username=username,
+                nickname=linuxdo_name,
+                avatar=linuxdo_avatar,
+                password_hash=None,  # LinuxDo 登录用户无密码
+                token=""  # 临时值
+            )
+            db.add(user)
+            db.flush()
+            
+            # 生成 Bot Token
+            bot_token = generate_token(user.id, "bot")
+            user.token = bot_token
+            
+            # 创建 OAuth 关联
+            oauth_account = OAuthAccount(
+                user_id=user.id,
+                provider="linuxdo",
+                provider_user_id=linuxdo_id,
+                provider_username=linuxdo_username,
+                provider_avatar=linuxdo_avatar,
+                access_token=access_token
+            )
+            db.add(oauth_account)
+            db.commit()
+            
+            access_token = generate_token(user.id, "user_session")
+            
+            return RedirectResponse(
+                url=f"{redirect_uri}/oauth/callback?access_token={access_token}&bot_token={bot_token}&is_new=true&provider=linuxdo"
+            )
+    
+    elif action == "link":
+        # 绑定流程
+        if existing_oauth:
+            return RedirectResponse(
+                url=f"{redirect_uri}/oauth/callback?error=already_linked&provider=linuxdo"
+            )
+        
+        # 返回待绑定的 LinuxDo 信息
+        return RedirectResponse(
+            url=f"{redirect_uri}/oauth/callback?action=link&provider=linuxdo&linuxdo_id={linuxdo_id}&linuxdo_username={linuxdo_username}&linuxdo_avatar={linuxdo_avatar}"
+        )
+    
+    return RedirectResponse(url=f"{redirect_uri}/login?error=unknown_action")
+
+
+@router.post("/linuxdo/link")
+async def linuxdo_link(
+    linuxdo_id: str,
+    linuxdo_username: str = "",
+    linuxdo_avatar: str = "",
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    绑定 LinuxDo 账号到当前用户
+    
+    需要先通过 /linuxdo/authorize?action=link 获取 LinuxDo 授权
+    """
+    # 检查该 LinuxDo 账号是否已被其他用户绑定
+    existing_oauth = db.query(OAuthAccount).filter(
+        OAuthAccount.provider == "linuxdo",
+        OAuthAccount.provider_user_id == linuxdo_id
+    ).first()
+    
+    if existing_oauth:
+        if existing_oauth.user_id == current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="该 LinuxDo 账号已绑定到你的账号"
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="该 LinuxDo 账号已被其他用户绑定"
+        )
+    
+    # 检查当前用户是否已绑定 LinuxDo
+    user_linuxdo = db.query(OAuthAccount).filter(
+        OAuthAccount.user_id == current_user.id,
+        OAuthAccount.provider == "linuxdo"
+    ).first()
+    
+    if user_linuxdo:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="你已经绑定了一个 LinuxDo 账号，请先解绑"
+        )
+    
+    # 创建绑定
+    oauth_account = OAuthAccount(
+        user_id=current_user.id,
+        provider="linuxdo",
+        provider_user_id=linuxdo_id,
+        provider_username=linuxdo_username,
+        provider_avatar=linuxdo_avatar
+    )
+    db.add(oauth_account)
+    db.commit()
+    db.refresh(oauth_account)
+    
+    return {
+        "message": "LinuxDo 账号绑定成功",
+        "oauth_account": OAuthAccountResponse.model_validate(oauth_account)
+    }
+
+
+@router.delete("/linuxdo/unlink")
+async def linuxdo_unlink(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    解绑 LinuxDo 账号
+    
+    如果用户只有 LinuxDo 登录（无密码），则不允许解绑
+    """
+    # 查找绑定
+    oauth_account = db.query(OAuthAccount).filter(
+        OAuthAccount.user_id == current_user.id,
+        OAuthAccount.provider == "linuxdo"
+    ).first()
+    
+    if not oauth_account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="未绑定 LinuxDo 账号"
+        )
+    
+    # 检查是否还有其他登录方式
+    if not current_user.password_hash:
+        # 检查是否还有其他 OAuth 绑定
+        other_oauth = db.query(OAuthAccount).filter(
+            OAuthAccount.user_id == current_user.id,
+            OAuthAccount.provider != "linuxdo"
+        ).first()
+        
+        if not other_oauth:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="无法解绑：这是你唯一的登录方式。请先设置密码"
+            )
+    
+    db.delete(oauth_account)
+    db.commit()
+    
+    return {"message": "LinuxDo 账号解绑成功"}
+
+
+@router.get("/linuxdo/config")
+async def get_linuxdo_config():
+    """
+    获取 LinuxDo OAuth 配置状态（是否已配置）
+    """
+    return {
+        "enabled": bool(settings.LINUXDO_CLIENT_ID and settings.LINUXDO_CLIENT_SECRET),
+        "client_id": settings.LINUXDO_CLIENT_ID[:8] + "..." if settings.LINUXDO_CLIENT_ID else None
     }

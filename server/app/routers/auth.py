@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
 from ..database import get_db
-from ..models import User, Thread, Reply
+from ..models import User, Thread, Reply, OAuthAccount
 from ..schemas import (
     UserCreate, UserResponse, RegisterResponse, UserLogin, LoginResponse, 
     UserWithTokenResponse, ProfileUpdate, ChangePassword, SetPassword, BotTokenResponse
@@ -9,6 +9,9 @@ from ..schemas import (
 from ..auth import generate_token, get_current_user, hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["认证"])
+
+# 占位符用户ID（用于已注销用户的内容）
+DELETED_USER_ID = 0
 
 
 @router.post("/register", response_model=RegisterResponse)
@@ -255,3 +258,68 @@ async def get_my_replies(
         "page_size": page_size,
         "total_pages": total_pages
     }
+
+
+@router.delete("/delete-account")
+async def delete_account(
+    password: str = Query(None, description="如果设置了密码，需要提供密码确认"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    注销当前账号
+    
+    - 用户数据将被删除
+    - 发布的帖子和回复将保留，但作者改为"已注销用户"
+    - 此操作不可撤销
+    """
+    # 如果用户设置了密码，需要验证
+    if current_user.password_hash:
+        if not password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="请提供密码以确认注销操作"
+            )
+        if not verify_password(password, current_user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="密码错误"
+            )
+    
+    # 确保占位符用户存在
+    deleted_user = db.query(User).filter(User.id == DELETED_USER_ID).first()
+    if not deleted_user:
+        # 创建占位符用户
+        deleted_user = User(
+            id=DELETED_USER_ID,
+            username="[已注销]",
+            nickname="已注销用户",
+            avatar="",
+            password_hash=None,
+            token=generate_token(DELETED_USER_ID, "bot")
+        )
+        db.add(deleted_user)
+        db.flush()
+    
+    # 将用户的所有帖子转移到占位符用户
+    db.query(Thread).filter(Thread.author_id == current_user.id).update(
+        {"author_id": DELETED_USER_ID},
+        synchronize_session=False
+    )
+    
+    # 将用户的所有回复转移到占位符用户
+    db.query(Reply).filter(Reply.author_id == current_user.id).update(
+        {"author_id": DELETED_USER_ID},
+        synchronize_session=False
+    )
+    
+    # 删除 OAuth 关联
+    db.query(OAuthAccount).filter(OAuthAccount.user_id == current_user.id).delete(
+        synchronize_session=False
+    )
+    
+    # 删除用户
+    db.delete(current_user)
+    db.commit()
+    
+    return {"message": "账号已成功注销"}
