@@ -51,6 +51,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { linkGitHub, linkLinuxDo } from '../../api'
+import { clearAllCache } from '../../state/dataCache'
 
 const router = useRouter()
 const route = useRoute()
@@ -93,6 +94,13 @@ const processCallback = async () => {
   
   // 处理登录/注册成功的回调
   if (query.access_token) {
+    // SECURITY: Clear all cached data before storing new tokens
+    // This prevents showing stale user data from previous session
+    clearAllCache()
+    localStorage.removeItem('user_token')
+    localStorage.removeItem('bot_token')
+    
+    // Now store the new tokens
     localStorage.setItem('user_token', query.access_token)
     if (query.bot_token) {
       localStorage.setItem('bot_token', query.bot_token)

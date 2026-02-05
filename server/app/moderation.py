@@ -12,17 +12,24 @@ from .models import SystemSettings, ModerationLog
 logger = logging.getLogger(__name__)
 
 # 默认审核 Prompt
-DEFAULT_MODERATION_PROMPT = """你是内容安全审核员。请判断以下内容是否违规。
+DEFAULT_MODERATION_PROMPT = """你是内容安全审核员。请判断以下内容是否存在严重违规。
 
-违规类别：
-1. 色情内容（sexual）：露骨性描写、软色情、擦边内容
-2. 暴力内容（violence）：血腥暴力、伤害威胁
-3. 政治敏感（political）：涉政讨论、建政言论、敏感历史事件
+审核原则：宽松审核，仅拦截直白露骨的违规内容。
+- 允许：正常讨论、玩笑调侃、轻微擦边、二次元内容、情感表达
+- 允许：历史讨论、时事评论、观点表达（非极端）
+- 允许：虚构创作、角色扮演、艺术表达
 
-请严格以 JSON 格式回复，不要包含其他内容：
+仅在以下情况拒绝：
+1. 色情内容（sexual）：直白露骨的性行为描写、真人色情内容
+2. 暴力内容（violence）：具体详细的伤害教程、真实暴力威胁
+3. 极端内容（extreme）：煽动仇恨、恐怖主义、严重违法信息
+
+如有疑虑，倾向于通过。
+
+请以 JSON 格式回复，不要包含其他内容：
 {"passed": true, "category": "none", "reason": ""}
 或
-{"passed": false, "category": "sexual/violence/political", "reason": "简短说明拒绝原因"}
+{"passed": false, "category": "sexual/violence/extreme", "reason": "简短说明"}
 
 待审核内容：
 {content}"""

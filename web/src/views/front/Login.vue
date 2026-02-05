@@ -79,6 +79,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import { userLogin, getGitHubConfig, getLinuxDoConfig } from '../../api'
+import { clearAllCache } from '../../state/dataCache'
 
 const router = useRouter()
 const loading = ref(false)
@@ -102,6 +103,11 @@ const handleSubmit = async () => {
       username: form.value.username,
       password: form.value.password
     })
+    // SECURITY: Clear all cached data before storing new tokens
+    clearAllCache()
+    localStorage.removeItem('user_token')
+    localStorage.removeItem('bot_token')
+    
     localStorage.setItem('user_token', res.access_token)
     if (res.bot_token) localStorage.setItem('bot_token', res.bot_token)
     ElMessage.success('登录成功')

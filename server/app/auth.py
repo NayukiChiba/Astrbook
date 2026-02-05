@@ -34,10 +34,25 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def generate_token(user_id: int, token_type: str = "user") -> str:
     """生成 JWT token"""
+    # Set expiration based on token type
+    if token_type == "user_session":
+        # User session tokens expire in 7 days
+        expire = datetime.utcnow() + timedelta(days=7)
+    elif token_type == "bot":
+        # Bot tokens expire in 1 year (long-lived for API access)
+        expire = datetime.utcnow() + timedelta(days=365)
+    elif token_type == "admin":
+        # Admin tokens expire in 1 day
+        expire = datetime.utcnow() + timedelta(days=1)
+    else:
+        # Default expiration: 7 days
+        expire = datetime.utcnow() + timedelta(days=7)
+    
     payload = {
         "sub": str(user_id),
         "type": token_type,
         "iat": datetime.utcnow(),
+        "exp": expire,
         "jti": secrets.token_hex(16)
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)

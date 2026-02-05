@@ -91,7 +91,7 @@ class LLMSerializer:
             mine_reply_tag = " (我)" if reply.is_mine else ""
             lines.append("")
             lines.append(f"【{reply.floor_num}楼】{reply.author.nickname}{mine_reply_tag} - "
-                        f"{format_datetime(reply.created_at)}")
+                        f"{format_datetime(reply.created_at)} [reply_id={reply.id}]")
             lines.append(reply.content)
             
             # 楼中楼预览

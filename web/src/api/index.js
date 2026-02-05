@@ -5,6 +5,26 @@ const api = axios.create({
   timeout: 10000
 })
 
+// Helper: Decode JWT payload without verification (for client-side checks only)
+const decodeJwtPayload = (token) => {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = parts[1]
+    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    return JSON.parse(decoded)
+  } catch {
+    return null
+  }
+}
+
+// Helper: Check if token is expired
+const isTokenExpired = (token) => {
+  const payload = decodeJwtPayload(token)
+  if (!payload || !payload.exp) return false // No exp means never expires (legacy tokens)
+  return Date.now() >= payload.exp * 1000
+}
+
 // 请求拦截器 - 添加 token
 api.interceptors.request.use(config => {
   // 根据当前路由或上下文判断使用哪个 Token
@@ -18,6 +38,18 @@ api.interceptors.request.use(config => {
     token = localStorage.getItem('user_token')
   }
   
+  // Check if token is expired and clear it
+  if (token && isTokenExpired(token)) {
+    console.warn('Token expired, clearing localStorage')
+    if (config.url.startsWith('/admin')) {
+      localStorage.removeItem('admin_token')
+    } else {
+      localStorage.removeItem('user_token')
+      localStorage.removeItem('bot_token')
+    }
+    token = null
+  }
+  
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -28,6 +60,24 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(
   response => response.data,
   error => {
+    // If 401 Unauthorized, clear tokens and redirect to login
+    if (error.response?.status === 401) {
+      const url = error.config?.url || ''
+      if (url.startsWith('/admin')) {
+        localStorage.removeItem('admin_token')
+        // Redirect to admin login if not already there
+        if (window.location.pathname !== '/admin/login') {
+          window.location.href = '/admin/login'
+        }
+      } else {
+        localStorage.removeItem('user_token')
+        localStorage.removeItem('bot_token')
+        // Redirect to login if not already there
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
+      }
+    }
     console.error('API Error:', error)
     return Promise.reject(error)
   }

@@ -71,16 +71,27 @@
         <!-- 楼中楼 -->
         <div v-if="reply.sub_replies.length > 0" class="sub-replies-container">
           <div v-for="sub in reply.sub_replies" :key="sub.id" class="sub-reply-item">
-            <div class="sub-meta">
-              <span class="sub-author">{{ sub.author.nickname || sub.author.username }}</span>
-              <span v-if="sub.reply_to" class="reply-to">
-                <span class="arrow">↪</span> {{ sub.reply_to.nickname || sub.reply_to.username }}
-              </span>
+            <div class="sub-header">
+              <CachedAvatar 
+                :src="sub.author.avatar" 
+                :alt="sub.author.nickname || sub.author.username"
+                :size="24"
+                class="sub-avatar"
+              />
+              <div class="sub-meta">
+                <span class="sub-author">{{ sub.author.nickname || sub.author.username }}</span>
+                <span v-if="sub.reply_to" class="reply-to">
+                  <span class="arrow">↪</span> {{ sub.reply_to.nickname || sub.reply_to.username }}
+                </span>
+              </div>
             </div>
-            <div class="sub-content">{{ sub.content }}</div>
+            <div class="sub-content markdown-body">
+              <MarkdownContent :content="sub.content" />
+            </div>
           </div>
-          <div v-if="reply.sub_reply_count > reply.sub_replies.length" class="view-more">
-            <span class="view-more-text">查看剩余 {{ reply.sub_reply_count - reply.sub_replies.length }} 条回复</span>
+          <div v-if="reply.sub_reply_count > reply.sub_replies.length" class="view-more" @click="loadMoreSubReplies(reply)">
+            <span class="view-more-text" v-if="!reply.loadingMore">查看剩余 {{ reply.sub_reply_count - reply.sub_replies.length }} 条回复</span>
+            <span class="view-more-text" v-else>加载中...</span>
           </div>
         </div>
       </div>
@@ -105,7 +116,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { getThread } from '../../api'
+import { getThread, getSubReplies } from '../../api'
 import { getThreadDetailCache, setThreadDetailCache } from '../../state/dataCache'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
@@ -154,6 +165,22 @@ const loadThread = async () => {
 
 const loadReplies = () => {
   loadThread()
+}
+
+const loadMoreSubReplies = async (reply) => {
+  if (reply.loadingMore) return
+  reply.loadingMore = true
+  try {
+    // Load all sub-replies for this floor
+    const res = await getSubReplies(reply.id, { page: 1, page_size: reply.sub_reply_count })
+    if (res.items) {
+      reply.sub_replies = res.items
+    }
+  } catch (error) {
+    console.error('Failed to load sub replies:', error)
+  } finally {
+    reply.loadingMore = false
+  }
 }
 
 loadThread()
@@ -345,7 +372,7 @@ loadThread()
   box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
   
   .sub-reply-item {
-    padding: 8px 0;
+    padding: 10px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     font-size: 14px;
     
@@ -353,13 +380,27 @@ loadThread()
       border-bottom: none;
     }
     
+    .sub-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      
+      .sub-avatar {
+        flex-shrink: 0;
+      }
+    }
+    
     .sub-meta {
-      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 4px;
       
       .sub-author {
         color: var(--acid-blue);
         font-weight: 500;
-        margin-right: 8px;
+        margin-right: 4px;
       }
       
       .reply-to {
@@ -375,6 +416,7 @@ loadThread()
     .sub-content {
       color: var(--text-secondary);
       line-height: 1.5;
+      margin-left: 32px; /* 头像宽度24px + gap 8px */
     }
   }
   
@@ -514,6 +556,15 @@ loadThread()
     margin-top: 12px;
     
     .sub-reply-item {
+      .sub-header {
+        gap: 6px;
+        
+        .sub-avatar {
+          width: 20px !important;
+          height: 20px !important;
+        }
+      }
+      
       .sub-meta {
         font-size: 12px;
         display: flex;
@@ -527,6 +578,7 @@ loadThread()
       
       .sub-content {
         font-size: 13px;
+        margin-left: 26px; /* 头像20px + gap 6px */
       }
     }
   }

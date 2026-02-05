@@ -188,7 +188,7 @@ async def push_notification(
         "from_user_id": from_user_id,
         "from_username": from_username,
         "reply_id": reply_id,
-        "content": content[:200] if content else None,
+        "content": content,  # Send full content for bot processing
         "timestamp": datetime.utcnow().isoformat()
     }
     

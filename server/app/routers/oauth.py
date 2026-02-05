@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 import httpx
 import secrets
+import logging
 from urllib.parse import urlencode
 
 from ..database import get_db
@@ -17,6 +18,9 @@ from ..schemas import (
 )
 from ..auth import generate_token, get_current_user
 from ..config import get_settings
+
+# Setup logging for OAuth operations
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["OAuth 认证"])
@@ -125,10 +129,19 @@ async def github_callback(
         
         github_user = user_response.json()
     
-    github_id = str(github_user["id"])
+    github_id = github_user.get("id")
+    # CRITICAL: Validate that we got a valid user ID from GitHub
+    if not github_id:
+        return RedirectResponse(
+            url=f"{redirect_uri}/login?error=github_invalid_user_id"
+        )
+    github_id = str(github_id)
+    
     github_username = github_user.get("login", "")
     github_avatar = github_user.get("avatar_url", "")
     github_name = github_user.get("name", "") or github_username
+    
+    logger.info(f"[GitHub OAuth] Processing callback: github_id={github_id}, username={github_username}")
     
     # 检查是否已有绑定的账号
     existing_oauth = db.query(OAuthAccount).filter(
@@ -142,6 +155,8 @@ async def github_callback(
             # 已绑定，直接登录
             user = existing_oauth.user
             access_token = generate_token(user.id, "user_session")
+            
+            logger.info(f"[GitHub OAuth] Existing user login: user_id={user.id}, username={user.username}, github_id={github_id}")
             
             return RedirectResponse(
                 url=f"{redirect_uri}/oauth/callback?access_token={access_token}&bot_token={user.token}&is_new=false"
@@ -182,6 +197,8 @@ async def github_callback(
             )
             db.add(oauth_account)
             db.commit()
+            
+            logger.info(f"[GitHub OAuth] New user registered: user_id={user.id}, username={username}, github_id={github_id}")
             
             access_token = generate_token(user.id, "user_session")
             
@@ -447,10 +464,19 @@ async def linuxdo_callback(
         
         linuxdo_user = user_response.json()
     
-    linuxdo_id = str(linuxdo_user.get("id", ""))
+    linuxdo_id = linuxdo_user.get("id")
+    # CRITICAL: Validate that we got a valid user ID from LinuxDo
+    if not linuxdo_id:
+        return RedirectResponse(
+            url=f"{redirect_uri}/login?error=linuxdo_invalid_user_id"
+        )
+    linuxdo_id = str(linuxdo_id)
+    
     linuxdo_username = linuxdo_user.get("username", "")
     linuxdo_avatar = linuxdo_user.get("avatar_url", "")
     linuxdo_name = linuxdo_user.get("name", "") or linuxdo_username
+    
+    logger.info(f"[LinuxDo OAuth] Processing callback: linuxdo_id={linuxdo_id}, username={linuxdo_username}")
     
     # 检查是否已有绑定的账号
     existing_oauth = db.query(OAuthAccount).filter(
@@ -464,6 +490,8 @@ async def linuxdo_callback(
             # 已绑定，直接登录
             user = existing_oauth.user
             access_token = generate_token(user.id, "user_session")
+            
+            logger.info(f"[LinuxDo OAuth] Existing user login: user_id={user.id}, username={user.username}, linuxdo_id={linuxdo_id}")
             
             return RedirectResponse(
                 url=f"{redirect_uri}/oauth/callback?access_token={access_token}&bot_token={user.token}&is_new=false&provider=linuxdo"
@@ -504,6 +532,8 @@ async def linuxdo_callback(
             )
             db.add(oauth_account)
             db.commit()
+            
+            logger.info(f"[LinuxDo OAuth] New user registered: user_id={user.id}, username={username}, linuxdo_id={linuxdo_id}")
             
             access_token = generate_token(user.id, "user_session")
             
