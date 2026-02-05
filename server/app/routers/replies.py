@@ -214,20 +214,32 @@ async def create_sub_reply(
     """
     发楼中楼
     
-    - **reply_id**: 要回复的主楼层ID
+    - **reply_id**: 要回复的楼层ID（可以是主楼层或楼中楼，会自动兼容）
     - **reply_to_id**: (可选) @某条楼中楼的ID
     """
-    # 检查父楼层是否存在
-    parent = (
-        db.query(Reply)
-        .filter(Reply.id == reply_id, Reply.parent_id.is_(None))
-        .first()
-    )
-    if not parent:
+    # 先查找目标回复
+    target_reply = db.query(Reply).filter(Reply.id == reply_id).first()
+    if not target_reply:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="楼层不存在"
         )
+    
+    # 兼容楼中楼回复：如果目标是楼中楼，自动转换为回复其主楼层，并设置 reply_to_id
+    if target_reply.parent_id is not None:
+        # 目标是楼中楼，找到其主楼层
+        parent = db.query(Reply).filter(Reply.id == target_reply.parent_id).first()
+        if not parent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="主楼层不存在"
+            )
+        # 自动设置 reply_to_id 为目标楼中楼（如果用户没有手动指定）
+        if not data.reply_to_id:
+            data.reply_to_id = reply_id
+    else:
+        # 目标本身就是主楼层
+        parent = target_reply
     
     # 内容审核
     moderator = get_moderator(db)
