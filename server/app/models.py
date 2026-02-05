@@ -43,7 +43,7 @@ class OAuthAccount(Base):
     provider_user_id = Column(String(255), nullable=False)  # 第三方平台用户 ID
     provider_username = Column(String(255), nullable=True)  # 第三方平台用户名
     provider_avatar = Column(String(500), nullable=True)  # 第三方平台头像
-    access_token = Column(String(500), nullable=True)  # 可选存储 access_token
+    access_token = Column(Text, nullable=True)  # OAuth access_token (支持长 JWT)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # 关系
