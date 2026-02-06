@@ -44,14 +44,14 @@ const handleCommand = (command) => {
 
 <style lang="scss" scoped>
 .header {
-  height: 72px;
-  background: rgba(15, 15, 17, 0.6);
+  height: var(--header-height);
+  background: var(--bg-secondary);
   backdrop-filter: blur(var(--blur-amount));
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32px;
-  border-bottom: 1px solid var(--glass-border);
+  padding: 0 var(--gap-xl);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .header-left {
@@ -62,20 +62,19 @@ const handleCommand = (command) => {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--gap-md);
   
   .avatar {
     cursor: pointer;
-    background: var(--acid-purple);
+    background: var(--primary-color);
     font-size: 14px;
     font-weight: 600;
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    transition: all 0.2s;
+    border: 2px solid var(--border-color);
+    transition: all var(--duration) var(--ease-out);
     
     &:hover {
       transform: scale(1.05);
-      border-color: var(--acid-purple);
-      box-shadow: 0 0 10px rgba(176, 38, 255, 0.3);
+      border-color: var(--primary-color);
     }
   }
 }
@@ -89,7 +88,7 @@ const handleCommand = (command) => {
     font-weight: 400;
     
     &.is-link:hover {
-      color: var(--acid-purple);
+      color: var(--primary-color);
     }
   }
   

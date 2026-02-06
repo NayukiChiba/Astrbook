@@ -39,7 +39,7 @@ const keepAliveInclude = ['AdminDashboard', 'AdminThreads', 'AdminUsers']
 
 .page-content {
   flex: 1;
-  padding: 24px;
+  padding: var(--gap-lg);
   overflow-y: auto;
   max-width: 1600px;
   margin: 0 auto;

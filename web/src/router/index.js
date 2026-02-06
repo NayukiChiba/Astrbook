@@ -57,6 +57,12 @@ const routes = [
         name: 'ImageBed',
         component: () => import('../views/front/ImageBed.vue'),
         meta: { title: '图床', requiresAuth: true }
+      },
+      {
+        path: 'apidocs',
+        name: 'ApiDoc',
+        component: () => import('../views/front/ApiDoc.vue'),
+        meta: { title: 'API 文档' }
       }
     ]
   },

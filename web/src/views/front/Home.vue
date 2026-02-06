@@ -53,29 +53,6 @@
       
       <!-- PC 端排序选择 -->
       <div class="sort-selector pc-only">
-        <div class="view-mode-switch">
-          <el-tooltip content="紧凑视图" placement="top" :hide-after="0">
-            <div 
-              class="mode-btn" 
-              :class="{ active: viewMode === 'compact' }"
-              @click="toggleViewMode('compact')"
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-            </div>
-          </el-tooltip>
-          <el-tooltip content="舒适视图" placement="top" :hide-after="0">
-            <div 
-              class="mode-btn" 
-              :class="{ active: viewMode === 'comfortable' }"
-              @click="toggleViewMode('comfortable')"
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="7" y1="8" x2="17" y2="8"></line><line x1="7" y1="12" x2="17" y2="12"></line><line x1="7" y1="16" x2="12" y2="16"></line></svg>
-            </div>
-          </el-tooltip>
-        </div>
-        
-        <span class="divider">|</span>
-        
         <span class="sort-label">排序</span>
         <el-select 
           v-model="currentSort" 
@@ -224,6 +201,7 @@ import LikeCount from '../../components/LikeButton.vue'
 import { Search } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
+import { useViewMode } from '../../state/viewMode'
 
 const router = useRouter()
 const threads = ref([])
@@ -244,13 +222,8 @@ const currentCategory = ref(null)
 // 排序相关
 const currentSort = ref('latest_reply')
 
-// 视图模式: 'compact' | 'comfortable'
-const viewMode = ref(localStorage.getItem('view_mode') || 'compact')
-
-const toggleViewMode = (mode) => {
-  viewMode.value = mode
-  localStorage.setItem('view_mode', mode)
-}
+// 视图模式（从共享状态获取）
+const { viewMode } = useViewMode()
 
 const categoryNames = {
   chat: '闲聊水区',
@@ -395,28 +368,35 @@ loadThreads()
   margin-bottom: 24px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   
   h1 {
-    font-size: 28px;
+    font-size: var(--title-font-size);
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: 4px;
-    letter-spacing: -0.5px;
+    letter-spacing: -1px;
+    background: var(--title-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: var(--title-text-fill);
+    filter: var(--title-filter);
   }
   
   .subtitle {
     color: var(--text-secondary);
     font-size: 14px;
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
   
   .search-entry {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     padding: 8px 16px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: 20px;
     color: var(--text-secondary);
     font-size: 14px;
@@ -424,9 +404,9 @@ loadThreads()
     transition: all 0.2s;
     
     &:hover {
-      background: var(--bg-elevated);
-      border-color: var(--text-secondary);
-      color: var(--text-primary);
+      background: var(--search-hover-bg);
+      border-color: var(--search-hover-border);
+      color: var(--search-hover-color);
     }
     
     .el-icon {
@@ -487,9 +467,9 @@ loadThreads()
     }
     
     &.active {
-      background: var(--acid-green);
-      border-color: var(--acid-green);
-      color: #000;
+      background: var(--category-active-bg);
+      border-color: var(--category-active-border);
+      color: var(--category-active-color);
       font-weight: 600;
       
       .category-icon {
@@ -585,59 +565,34 @@ loadThreads()
   }
 }
 
-/* 视图切换按钮样式 */
-.view-mode-switch {
-  display: flex;
-  background: var(--bg-tertiary);
-  padding: 2px;
-  border-radius: 6px;
-  margin-right: 12px;
-  border: 1px solid var(--border-color);
-  
-  .mode-btn {
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    border-radius: 4px;
-    color: var(--text-secondary);
-    transition: all 0.2s;
-    
-    &:hover {
-      color: var(--text-primary);
-    }
-    
-    &.active {
-      background: var(--bg-elevated);
-      color: var(--primary-color);
-      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-    }
-  }
-}
-
-.divider {
-  color: var(--border-color);
-  margin: 0 12px 0 0;
-  font-size: 14px;
-}
-
 .content-layout {
   display: grid;
   grid-template-columns: 1fr 300px;
   gap: 32px;
 }
 
-/* 扁平卡片通用样式 */
+/* 卡片通用样式 - 根据主题自动适配 */
 .glass-card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-amount));
+  -webkit-backdrop-filter: blur(var(--blur-amount));
+  border: 1px solid var(--glass-border);
   border-radius: var(--card-radius);
-  box-shadow: none; // Flat design usually has no shadow or very subtle
-  transition: all 0.2s ease;
+  box-shadow: var(--card-shadow);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   position: relative;
   overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
+    opacity: calc(var(--glow-intensity) * 0.5);
+  }
 }
 
 /* 帖子列表容器 */
@@ -692,7 +647,8 @@ loadThreads()
   cursor: pointer;
   
   &:hover {
-    transform: none; 
+    transform: var(--card-hover-transform);
+    box-shadow: var(--card-hover-shadow);
     background: var(--bg-tertiary);
     border-color: var(--border-light);
     

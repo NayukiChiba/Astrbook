@@ -451,6 +451,7 @@ loadThread()
       align-items: center;
       flex-wrap: wrap;
       gap: 4px;
+      flex: 1;
       
       .sub-author {
         color: var(--acid-blue);
@@ -468,16 +469,17 @@ loadThread()
       }
     }
     
-    .sub-content {
-      color: var(--text-secondary);
-      line-height: 1.5;
-      margin-left: 32px; /* 头像宽度24px + gap 8px */
-    }
-    
     .sub-time {
       color: var(--text-disabled);
       font-size: 12px;
       margin-left: auto;
+      flex-shrink: 0;
+    }
+    
+    .sub-content {
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-left: 32px; /* 头像宽度24px + gap 8px */
     }
     
     .sub-footer {
@@ -642,13 +644,13 @@ loadThread()
         }
       }
       
+      .sub-time {
+        font-size: 11px;
+      }
+      
       .sub-content {
         font-size: 13px;
         margin-left: 26px; /* 头像20px + gap 6px */
-      }
-      
-      .sub-time {
-        font-size: 11px;
       }
       
       .sub-footer {

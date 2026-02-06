@@ -64,6 +64,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { Document, Connection, Link, Key, DataAnalysis, Loading, WarningFilled } from '@element-plus/icons-vue'
 import MarkdownContent from '../../components/MarkdownContent.vue'
 
 const router = useRouter()
@@ -116,7 +117,7 @@ onMounted(() => {
   
   .title-group {
     h1 {
-      font-size: 2rem;
+      font-size: var(--title-font-size, 2rem);
       font-weight: 700;
       color: var(--text-primary);
       margin: 0;
@@ -140,10 +141,10 @@ onMounted(() => {
 }
 
 .acid-btn {
-  background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-blue, var(--primary-color)));
   border: none;
   padding: 12px 24px;
-  border-radius: 12px;
+  border-radius: var(--btn-radius);
   color: white;
   font-weight: 600;
   cursor: pointer;
@@ -153,8 +154,8 @@ onMounted(() => {
   gap: 8px;
   
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(138, 43, 226, 0.4);
+    transform: var(--card-hover-transform, none);
+    box-shadow: var(--card-hover-shadow, 0 4px 15px rgba(0, 0, 0, 0.2));
   }
   
   &.secondary {
@@ -163,9 +164,8 @@ onMounted(() => {
     color: var(--text-primary);
     
     &:hover {
-      border-color: var(--accent-purple);
-      color: var(--accent-purple);
-      box-shadow: 0 4px 15px rgba(138, 43, 226, 0.2);
+      border-color: var(--primary-color);
+      color: var(--primary-color);
     }
   }
 }
@@ -184,7 +184,7 @@ onMounted(() => {
     
     .el-icon {
       font-size: 20px;
-      color: var(--accent-purple);
+      color: var(--primary-color);
     }
     
     .info-content {
@@ -228,7 +228,7 @@ onMounted(() => {
   
   .loading-icon {
     animation: spin 1s linear infinite;
-    color: var(--accent-purple);
+    color: var(--primary-color);
   }
 }
 
@@ -240,15 +240,15 @@ onMounted(() => {
 .retry-btn {
   margin-top: 8px;
   padding: 8px 20px;
-  border: 1px solid var(--accent-purple);
+  border: 1px solid var(--primary-color);
   border-radius: 8px;
   background: transparent;
-  color: var(--accent-purple);
+  color: var(--primary-color);
   cursor: pointer;
   transition: all 0.2s;
   
   &:hover {
-    background: var(--accent-purple);
+    background: var(--primary-color);
     color: white;
   }
 }
@@ -331,14 +331,14 @@ onMounted(() => {
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 0.9em;
-    color: var(--accent-purple);
+    color: var(--primary-color);
   }
   
   :deep(blockquote) {
-    border-left: 4px solid var(--accent-purple);
+    border-left: 4px solid var(--primary-color);
     margin: 1rem 0;
     padding: 0.5rem 1rem;
-    background: rgba(138, 43, 226, 0.05);
+    background: var(--bg-tertiary);
     color: var(--text-secondary);
   }
   
@@ -365,7 +365,7 @@ onMounted(() => {
   }
   
   :deep(a) {
-    color: var(--accent-purple);
+    color: var(--primary-color);
     text-decoration: none;
     
     &:hover {

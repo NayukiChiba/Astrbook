@@ -11,16 +11,43 @@
           </router-link>
         </div>
         <div class="header-right">
+          <!-- 视图模式切换 (仅首页显示) -->
+          <div v-if="isHomePage" class="view-mode-switch">
+            <el-tooltip content="紧凑视图" placement="bottom" :hide-after="0">
+              <button 
+                class="mode-btn" 
+                :class="{ active: viewMode === 'compact' }"
+                @click="toggleViewMode('compact')"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              </button>
+            </el-tooltip>
+            <el-tooltip content="舒适视图" placement="bottom" :hide-after="0">
+              <button 
+                class="mode-btn" 
+                :class="{ active: viewMode === 'comfortable' }"
+                @click="toggleViewMode('comfortable')"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="7" y1="8" x2="17" y2="8"></line><line x1="7" y1="12" x2="17" y2="12"></line><line x1="7" y1="16" x2="12" y2="16"></line></svg>
+              </button>
+            </el-tooltip>
+          </div>
 
-          <el-dropdown @command="setTheme" trigger="click" popper-class="glass-dropdown">
-            <button class="theme-toggle-btn" title="切换主题">
+          <el-dropdown @command="handleThemeChange" trigger="click" popper-class="glass-dropdown">
+            <button class="theme-toggle-btn" :title="'当前主题: ' + theme">
               <el-icon><Brush /></el-icon>
             </button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="dark">现代深色 (默认)</el-dropdown-item>
-                <el-dropdown-item command="light">现代浅色</el-dropdown-item>
-                <el-dropdown-item command="acid" divided>经典酸性</el-dropdown-item>
+                <el-dropdown-item 
+                  v-for="t in availableThemes" 
+                  :key="t.key" 
+                  :command="t.key"
+                  :class="{ 'is-active': theme === t.key }"
+                >
+                  <el-icon class="theme-icon"><component :is="getThemeIcon(t.icon)" /></el-icon>
+                  <span>{{ t.name }}</span>
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -78,17 +105,36 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { Moon, Sunny, Brush } from '@element-plus/icons-vue'
+import { useRouter, useRoute } from 'vue-router'
+import { Brush, Moon, Sunny, MagicStick } from '@element-plus/icons-vue'
 import { getCurrentUser } from '../api'
 import { clearAllCache, getCurrentUserCache, setCurrentUserCache } from '../state/dataCache'
 import CachedAvatar from '../components/CachedAvatar.vue'
+import { 
+  getAvailableThemes, 
+  getCurrentTheme, 
+  setTheme as applyTheme,
+  initTheme,
+  DEFAULT_THEME
+} from '../utils/theme'
+import { useViewMode } from '../state/viewMode'
+
+const { viewMode, toggleViewMode } = useViewMode()
+
+// 图标映射
+const iconComponents = { Moon, Sunny, MagicStick }
+const getThemeIcon = (iconName) => iconComponents[iconName] || Moon
 
 const router = useRouter()
+const route = useRoute()
 const currentUser = ref(null)
+
+// 判断是否在首页
+const isHomePage = computed(() => route.path === '/')
 const userLoading = ref(true)
 const keepAliveInclude = ['FrontHome', 'FrontProfile']
-const theme = ref('dark')
+const theme = ref(DEFAULT_THEME)
+const availableThemes = getAvailableThemes()
 
 // 判断是否已登录
 const isLoggedIn = computed(() => {
@@ -121,10 +167,9 @@ const loadUser = async () => {
   }
 }
 
-const setTheme = (newTheme) => {
-  theme.value = newTheme
-  document.documentElement.setAttribute('data-theme', newTheme)
-  localStorage.setItem('theme', newTheme)
+const handleThemeChange = (themeKey) => {
+  theme.value = themeKey
+  applyTheme(themeKey)
 }
 
 const handleCommand = (command) => {
@@ -142,9 +187,9 @@ const handleCommand = (command) => {
 }
 
 onMounted(() => {
-  const savedTheme = localStorage.getItem('theme') || 'dark'
-  theme.value = savedTheme
-  document.documentElement.setAttribute('data-theme', savedTheme)
+  // 初始化主题
+  initTheme()
+  theme.value = getCurrentTheme()
   loadUser()
 })
 </script>
@@ -206,7 +251,40 @@ onMounted(() => {
   .header-right {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
+
+    .view-mode-switch {
+      display: flex;
+      background: var(--bg-tertiary);
+      padding: 2px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      
+      .mode-btn {
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border-radius: 4px;
+        color: var(--text-secondary);
+        transition: all 0.2s;
+        
+        &:hover {
+          color: var(--text-primary);
+        }
+        
+        &.active {
+          background: var(--bg-elevated);
+          color: var(--primary-color);
+          box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+      }
+    }
 
     .theme-toggle-btn {
       width: 36px;
@@ -359,13 +437,14 @@ onMounted(() => {
 </style>
 
 <style lang="scss">
-// 覆盖 Element Plus 下拉菜单样式，使其符合扁平风格
+// 覆盖 Element Plus 下拉菜单样式，使其符合当前主题风格
 .el-dropdown__popper.glass-dropdown {
   background: var(--bg-elevated) !important;
-  backdrop-filter: none !important;
+  backdrop-filter: blur(var(--blur-amount)) !important;
+  -webkit-backdrop-filter: blur(var(--blur-amount)) !important;
   border: 1px solid var(--border-color) !important;
-  box-shadow: var(--card-shadow) !important;
-  border-radius: 4px !important;
+  box-shadow: var(--dropdown-shadow) !important;
+  border-radius: var(--btn-radius) !important;
   
   .el-dropdown-menu {
     background: transparent !important;
@@ -374,14 +453,25 @@ onMounted(() => {
   
   .el-dropdown-menu__item {
     color: var(--text-primary) !important;
-    border-radius: 4px !important;
+    border-radius: var(--btn-radius) !important;
     margin-bottom: 2px;
     padding: 8px 16px !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    .theme-icon {
+      font-size: 16px;
+    }
     
     &:hover, &:focus {
       background: var(--bg-tertiary) !important;
       color: var(--text-primary) !important;
-      box-shadow: none !important;
+    }
+    
+    &.is-active {
+      color: var(--primary-color) !important;
+      font-weight: 600;
     }
     
     &.el-dropdown-menu__item--divided {
