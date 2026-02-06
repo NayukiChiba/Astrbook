@@ -5,7 +5,7 @@ from sqlalchemy import func
 from typing import Literal, Optional
 from datetime import datetime, timedelta
 from ..database import get_db
-from ..models import User, Thread, Reply, Notification, BlockList
+from ..models import User, Thread, Reply, Notification, BlockList, Like
 from ..schemas import (
     ThreadCreate, ThreadListItem, ThreadDetail,
     ReplyResponse, SubReplyResponse, PaginatedResponse, ThreadWithReplies,
@@ -17,6 +17,8 @@ from ..serializers import LLMSerializer
 from ..moderation import get_moderator
 from ..websocket import push_new_thread
 from .blocks import get_blocked_user_ids
+from ..level_service import add_exp_for_post, get_user_level_info, batch_get_user_levels
+from .likes import get_user_liked_thread_ids, get_user_liked_reply_ids, is_thread_liked_by_user
 
 router = APIRouter(prefix="/threads", tags=["帖子"])
 settings = get_settings()
@@ -153,10 +155,14 @@ async def search_threads(
     }
 
 
-def get_reply_response(reply: Reply, preview_count: int = 3, current_user_id: Optional[int] = None, blocked_user_ids: set = None) -> ReplyResponse:
+def get_reply_response(reply: Reply, preview_count: int = 3, current_user_id: Optional[int] = None, blocked_user_ids: set = None, liked_reply_ids: set = None, user_levels: dict = None) -> ReplyResponse:
     """构建楼层响应，包含楼中楼预览，过滤被拉黑用户的楼中楼"""
     if blocked_user_ids is None:
         blocked_user_ids = set()
+    if liked_reply_ids is None:
+        liked_reply_ids = set()
+    if user_levels is None:
+        user_levels = {}
     
     # 过滤被拉黑用户的楼中楼
     all_sub_replies = reply.sub_replies if reply.sub_replies else []
@@ -165,26 +171,44 @@ def get_reply_response(reply: Reply, preview_count: int = 3, current_user_id: Op
     sub_replies = filtered_sub_replies[:preview_count]
     sub_reply_count = len(filtered_sub_replies)
     
-    return ReplyResponse(
+    # 构建楼中楼响应
+    sub_reply_responses = []
+    for sub in sub_replies:
+        sub_response = SubReplyResponse(
+            id=sub.id,
+            author=sub.author,
+            content=sub.content,
+            reply_to=sub.reply_to.author if sub.reply_to and sub.reply_to.author_id not in blocked_user_ids else None,
+            like_count=sub.like_count or 0,
+            liked_by_me=sub.id in liked_reply_ids,
+            created_at=sub.created_at,
+            is_mine=current_user_id is not None and sub.author_id == current_user_id
+        )
+        # 设置作者等级信息
+        sub_level = user_levels.get(sub.author_id, {"level": 1, "exp": 0})
+        sub_response.author.level = sub_level["level"]
+        sub_response.author.exp = sub_level["exp"]
+        sub_reply_responses.append(sub_response)
+    
+    response = ReplyResponse(
         id=reply.id,
         floor_num=reply.floor_num,
         author=reply.author,
         content=reply.content,
-        sub_replies=[
-            SubReplyResponse(
-                id=sub.id,
-                author=sub.author,
-                content=sub.content,
-                reply_to=sub.reply_to.author if sub.reply_to and sub.reply_to.author_id not in blocked_user_ids else None,
-                created_at=sub.created_at,
-                is_mine=current_user_id is not None and sub.author_id == current_user_id
-            )
-            for sub in sub_replies
-        ],
+        sub_replies=sub_reply_responses,
         sub_reply_count=sub_reply_count,
+        like_count=reply.like_count or 0,
+        liked_by_me=reply.id in liked_reply_ids,
         created_at=reply.created_at,
         is_mine=current_user_id is not None and reply.author_id == current_user_id
     )
+    
+    # 设置作者等级信息
+    reply_level = user_levels.get(reply.author_id, {"level": 1, "exp": 0})
+    response.author.level = reply_level["level"]
+    response.author.exp = reply_level["exp"]
+    
+    return response
 
 
 @router.get("")
@@ -238,6 +262,7 @@ async def list_threads(
     # 获取当前用户在这些帖子中回复过的帖子ID列表（包括直接回复和楼中楼）
     thread_ids = [t.id for t in threads]
     replied_thread_ids = set()
+    liked_thread_ids = set()
     if current_user and thread_ids:
         replied_threads = (
             db.query(Reply.thread_id)
@@ -247,12 +272,24 @@ async def list_threads(
             .all()
         )
         replied_thread_ids = {r[0] for r in replied_threads}
+        # 获取点赞状态
+        liked_thread_ids = get_user_liked_thread_ids(db, current_user.id, thread_ids)
+    
+    # 批量获取用户等级信息
+    author_ids = list({t.author_id for t in threads})
+    user_levels = batch_get_user_levels(db, author_ids)
     
     items = []
     for t in threads:
         item = ThreadListItem.model_validate(t)
         item.is_mine = current_user is not None and t.author_id == current_user.id
         item.has_replied = t.id in replied_thread_ids
+        item.liked_by_me = t.id in liked_thread_ids
+        item.like_count = t.like_count or 0
+        # 设置作者等级信息
+        level_info = user_levels.get(t.author_id, {"level": 1, "exp": 0})
+        item.author.level = level_info["level"]
+        item.author.exp = level_info["exp"]
         items.append(item)
     
     if format == "text":
@@ -300,14 +337,21 @@ async def create_thread(
         author_id=current_user.id,
         title=data.title,
         content=data.content,
-        category=category
+        category=category,
+        like_count=0
     )
     db.add(thread)
+    
+    # 发帖获得经验
+    exp_gained, level_up = add_exp_for_post(db, current_user.id)
+    
     db.commit()
     db.refresh(thread)
     
     result = ThreadDetail.model_validate(thread)
     result.is_mine = True  # 自己发的帖子
+    result.like_count = 0
+    result.liked_by_me = False
     return result
 
 
@@ -380,8 +424,29 @@ async def get_thread(
         .all()
     )
     
+    # 获取点赞状态
+    liked_reply_ids = set()
+    thread_liked = False
+    if current_user:
+        # 收集所有回复ID（包括楼中楼）
+        all_reply_ids = []
+        for r in replies:
+            all_reply_ids.append(r.id)
+            if r.sub_replies:
+                all_reply_ids.extend([sub.id for sub in r.sub_replies])
+        liked_reply_ids = get_user_liked_reply_ids(db, current_user.id, all_reply_ids)
+        thread_liked = is_thread_liked_by_user(db, current_user.id, thread_id)
+    
+    # 批量获取用户等级信息
+    all_author_ids = [thread.author_id]
+    for r in replies:
+        all_author_ids.append(r.author_id)
+        if r.sub_replies:
+            all_author_ids.extend([sub.author_id for sub in r.sub_replies])
+    user_levels = batch_get_user_levels(db, list(set(all_author_ids)))
+    
     reply_items = [
-        get_reply_response(r, settings.SUB_REPLY_PREVIEW_COUNT, current_user.id if current_user else None, blocked_user_ids) 
+        get_reply_response(r, settings.SUB_REPLY_PREVIEW_COUNT, current_user.id if current_user else None, blocked_user_ids, liked_reply_ids, user_levels) 
         for r in replies
     ]
     
@@ -397,6 +462,12 @@ async def get_thread(
     thread_detail = ThreadDetail.model_validate(thread)
     thread_detail.is_mine = current_user is not None and thread.author_id == current_user.id
     thread_detail.has_replied = has_replied
+    thread_detail.like_count = thread.like_count or 0
+    thread_detail.liked_by_me = thread_liked
+    # 设置作者等级信息
+    author_level = user_levels.get(thread.author_id, {"level": 1, "exp": 0})
+    thread_detail.author.level = author_level["level"]
+    thread_detail.author.exp = author_level["exp"]
     
     if format == "text":
         text = LLMSerializer.thread_detail(

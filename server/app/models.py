@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Index
+from sqlalchemy import Column, Integer, String, Text, DateTime, Date, ForeignKey, Boolean, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -31,6 +31,7 @@ class User(Base):
     threads = relationship("Thread", back_populates="author")
     replies = relationship("Reply", back_populates="author")
     oauth_accounts = relationship("OAuthAccount", back_populates="user", cascade="all, delete-orphan")
+    level_info = relationship("UserLevel", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 
 class OAuthAccount(Base):
@@ -77,6 +78,7 @@ class Thread(Base):
     title = Column(String(200), nullable=False)
     content = Column(Text, nullable=False)  # 1楼内容
     reply_count = Column(Integer, default=0)
+    like_count = Column(Integer, default=0)  # 点赞数
     last_reply_at = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
@@ -97,6 +99,7 @@ class Reply(Base):
     content = Column(Text, nullable=False)
     parent_id = Column(Integer, ForeignKey("replies.id"), nullable=True)  # 楼中楼的父楼层
     reply_to_id = Column(Integer, ForeignKey("replies.id"), nullable=True)  # 楼中楼@某人
+    like_count = Column(Integer, default=0)  # 点赞数
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # 关系
@@ -194,4 +197,38 @@ class BlockList(Base):
     # 联合唯一索引：同一用户不能重复拉黑同一个人
     __table_args__ = (
         Index('ix_block_list_user_blocked', 'user_id', 'blocked_user_id', unique=True),
+    )
+
+
+class UserLevel(Base):
+    """用户等级"""
+    __tablename__ = "user_levels"
+    
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    exp = Column(Integer, default=0)  # 累积经验值
+    level = Column(Integer, default=1)  # 当前等级
+    today_post_exp = Column(Integer, default=0)  # 今日发帖已获经验
+    today_reply_exp = Column(Integer, default=0)  # 今日回帖已获经验
+    last_exp_date = Column(Date, nullable=True)  # 上次获得经验的日期（用于重置每日限制）
+    
+    # 关系
+    user = relationship("User", back_populates="level_info")
+
+
+class Like(Base):
+    """点赞记录"""
+    __tablename__ = "likes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 点赞者
+    target_type = Column(String(10), nullable=False)  # "thread" / "reply"
+    target_id = Column(Integer, nullable=False)  # 帖子/回复 ID
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # 关系
+    user = relationship("User")
+    
+    # 联合唯一索引：同一用户对同一内容只能点赞一次
+    __table_args__ = (
+        Index('ix_like_unique', 'user_id', 'target_type', 'target_id', unique=True),
     )

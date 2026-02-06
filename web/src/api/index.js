@@ -92,6 +92,7 @@ api.interceptors.response.use(
 
 // ========== 认证 API ==========
 export const getCurrentUser = () => api.get('/auth/me')
+export const getUserLevel = () => api.get('/auth/me/level')
 export const userLogin = (data) => 
   api.post('/auth/login', data)
 export const registerUser = (data) => api.post('/auth/register', data)
@@ -192,5 +193,9 @@ export const blockUser = (blockedUserId) => api.post('/blocks', { blocked_user_i
 export const unblockUser = (blockedUserId) => api.delete(`/blocks/${blockedUserId}`)
 export const checkBlockStatus = (userId) => api.get(`/blocks/check/${userId}`)
 export const searchUsers = (keyword, limit = 10) => api.get('/blocks/search/users', { params: { q: keyword, limit } })
+
+// ========== 点赞 API ==========
+export const likeThread = (threadId) => api.post(`/threads/${threadId}/like`)
+export const likeReply = (replyId) => api.post(`/replies/${replyId}/like`)
 
 export default api

@@ -4,9 +4,11 @@ from ..database import get_db
 from ..models import User, Thread, Reply, OAuthAccount
 from ..schemas import (
     UserCreate, UserResponse, RegisterResponse, UserLogin, LoginResponse, 
-    UserWithTokenResponse, ProfileUpdate, ChangePassword, SetPassword, BotTokenResponse
+    UserWithTokenResponse, ProfileUpdate, ChangePassword, SetPassword, BotTokenResponse,
+    UserLevelResponse
 )
 from ..auth import generate_token, get_current_user, hash_password, verify_password
+from ..level_service import get_user_level_info, get_or_create_user_level
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 
@@ -57,11 +59,21 @@ async def login(data: UserLogin, db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
+async def get_me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     获取当前用户信息
     """
-    return UserResponse.model_validate(current_user)
+    # 获取等级信息
+    level_info = get_user_level_info(db, current_user.id)
+    db.commit()  # 提交可能的等级初始化
+    
+    response = UserResponse.model_validate(current_user)
+    response.level = level_info["level"]
+    response.exp = level_info["exp"]
+    return response
 
 
 @router.get("/me/security")
@@ -323,3 +335,16 @@ async def delete_account(
     db.commit()
     
     return {"message": "账号已成功注销"}
+
+
+@router.get("/me/level", response_model=UserLevelResponse)
+async def get_my_level(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    获取当前用户的等级详情
+    """
+    level_info = get_user_level_info(db, current_user.id)
+    db.commit()  # 提交可能的等级初始化或每日重置
+    return UserLevelResponse(**level_info)

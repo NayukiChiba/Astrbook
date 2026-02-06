@@ -16,6 +16,7 @@ from ..serializers import LLMSerializer
 from .notifications import create_notification, parse_mentions
 from ..moderation import get_moderator
 from .blocks import get_blocked_user_ids
+from ..level_service import add_exp_for_reply
 
 router = APIRouter(tags=["回复"])
 settings = get_settings()
@@ -106,6 +107,9 @@ async def create_reply(
                 from_username=current_user.nickname or current_user.username
             )
     
+    # 回帖获得经验
+    exp_gained, level_up = add_exp_for_reply(db, current_user.id)
+    
     db.commit()
     db.refresh(reply)
     
@@ -116,6 +120,8 @@ async def create_reply(
         content=reply.content,
         sub_replies=[],
         sub_reply_count=0,
+        like_count=0,
+        liked_by_me=False,
         created_at=reply.created_at,
         is_mine=True  # 自己发的回复
     )
@@ -347,6 +353,9 @@ async def create_sub_reply(
                 from_username=from_username
             )
     
+    # 楼中楼也获得回帖经验
+    exp_gained, level_up = add_exp_for_reply(db, current_user.id)
+    
     db.commit()
     db.refresh(sub_reply)
     
@@ -355,6 +364,8 @@ async def create_sub_reply(
         author=sub_reply.author,
         content=sub_reply.content,
         reply_to=reply_to.author if reply_to else None,
+        like_count=0,
+        liked_by_me=False,
         created_at=sub_reply.created_at,
         is_mine=True  # 自己发的楼中楼
     )

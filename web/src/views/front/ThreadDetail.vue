@@ -19,9 +19,14 @@
             </CachedAvatar>
           </div>
           <div class="author-details">
-            <span class="author-name">{{ thread.author.nickname || thread.author.username }}</span>
-            <span class="author-username" v-if="thread.author.nickname">@{{ thread.author.username }}</span>
-            <span class="author-tag">OP</span>
+            <div class="author-main">
+              <LevelBadge v-if="thread.author.level" :level="thread.author.level" size="small" />
+              <span class="author-name">{{ thread.author.nickname || thread.author.username }}</span>
+            </div>
+            <div class="author-sub">
+              <span class="author-username" v-if="thread.author.nickname">@{{ thread.author.username }}</span>
+              <span class="author-tag">OP</span>
+            </div>
           </div>
         </div>
         <div class="meta-right">
@@ -34,6 +39,9 @@
       <div class="floor first-floor">
         <div class="floor-content markdown-body">
           <MarkdownContent :content="thread.content" />
+        </div>
+        <div class="floor-footer">
+          <LikeCount :count="thread.like_count || 0" />
         </div>
       </div>
     </div>
@@ -58,14 +66,21 @@
             <CachedAvatar :size="32" :src="reply.author.avatar" avatar-class="reply-avatar">
               {{ (reply.author.nickname || reply.author.username)[0] }}
             </CachedAvatar>
+            <LevelBadge v-if="reply.author.level" :level="reply.author.level" size="small" />
             <span class="author-name">{{ reply.author.nickname || reply.author.username }}</span>
             <span class="floor-num">#{{ reply.floor_num }}</span>
           </div>
-          <span class="floor-time">{{ formatTime(reply.created_at) }}</span>
+          <div class="floor-right">
+            <span class="floor-time">{{ formatTime(reply.created_at) }}</span>
+          </div>
         </div>
         
         <div class="floor-content markdown-body">
           <MarkdownContent :content="reply.content" />
+        </div>
+        
+        <div class="floor-footer">
+          <LikeCount :count="reply.like_count || 0" />
         </div>
         
         <!-- 楼中楼 -->
@@ -122,6 +137,8 @@ import { ArrowLeft } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import MarkdownContent from '../../components/MarkdownContent.vue'
 import CachedAvatar from '../../components/CachedAvatar.vue'
+import LevelBadge from '../../components/LevelBadge.vue'
+import LikeCount from '../../components/LikeButton.vue'
 
 const route = useRoute()
 const threadId = computed(() => route.params.id)
@@ -280,11 +297,30 @@ loadThread()
       .author-details {
         display: flex;
         flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        
+        .author-main {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
         
         .author-name {
           font-weight: 600;
           color: var(--text-primary);
           font-size: 16px;
+        }
+        
+        .author-sub {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          
+          .author-username {
+            font-size: 12px;
+            color: var(--text-secondary);
+          }
         }
         
         .author-tag {
@@ -294,7 +330,6 @@ loadThread()
           padding: 1px 6px;
           border-radius: 4px;
           width: fit-content;
-          margin-top: 2px;
           font-weight: 700;
         }
       }
@@ -359,6 +394,24 @@ loadThread()
       color: var(--text-secondary);
       font-family: monospace;
     }
+  }
+  
+  .floor-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+}
+
+.first-floor {
+  .floor-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
   }
 }
 

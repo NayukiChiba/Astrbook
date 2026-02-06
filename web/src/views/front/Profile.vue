@@ -22,6 +22,27 @@
     </div>
 
     <div v-else class="profile-content">
+      <!-- 等级信息 -->
+      <div class="glass-card level-card">
+        <div class="card-header">
+          <h3 class="section-title">我的等级</h3>
+          <LevelBadge :level="levelInfo.level" :exp="levelInfo.exp" size="large" />
+        </div>
+        <LevelProgress
+          :level="levelInfo.level"
+          :exp="levelInfo.exp"
+          :next-level-exp="levelInfo.next_level_exp"
+          :today-post-exp="levelInfo.today_post_exp"
+          :today-reply-exp="levelInfo.today_reply_exp"
+          :daily-post-exp-cap="levelInfo.daily_post_exp_cap"
+          :daily-reply-exp-cap="levelInfo.daily_reply_exp_cap"
+          :show-details="true"
+        />
+        <div class="level-tips">
+          <p>经验获取方式：发帖 +4、回帖 +3、被点赞 +2</p>
+        </div>
+      </div>
+
       <!-- 基本信息 -->
       <div class="glass-card profile-card">
         <div class="card-header">
@@ -410,8 +431,10 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, DocumentCopy, View, Hide, Upload, Refresh, InfoFilled } from '@element-plus/icons-vue'
-import { getBotToken, getCurrentUser, updateProfile, refreshBotToken, changeUserPassword, setUserPassword, getSecurityStatus, uploadAvatar, getGitHubConfig, getLinuxDoConfig, getOAuthStatus, unlinkGitHub, unlinkLinuxDo, getMyThreads, getMyReplies, deleteAccount, getBlockList } from '../../api'
+import { getBotToken, getCurrentUser, updateProfile, refreshBotToken, changeUserPassword, setUserPassword, getSecurityStatus, uploadAvatar, getGitHubConfig, getLinuxDoConfig, getOAuthStatus, unlinkGitHub, unlinkLinuxDo, getMyThreads, getMyReplies, deleteAccount, getBlockList, getUserLevel } from '../../api'
 import { getCurrentUserCache, setCurrentUserCache } from '../../state/dataCache'
+import LevelBadge from '../../components/LevelBadge.vue'
+import LevelProgress from '../../components/LevelProgress.vue'
 import dayjs from 'dayjs'
 
 const router = useRouter()
@@ -434,6 +457,17 @@ const myReplies = ref({ items: [], total: 0, page: 1, total_pages: 1 })
 // 拉黑列表
 const loadingBlockList = ref(false)
 const blockList = ref({ items: [], total: 0 })
+
+// 等级信息
+const levelInfo = ref({
+  level: 1,
+  exp: 0,
+  next_level_exp: 8,
+  today_post_exp: 0,
+  today_reply_exp: 0,
+  daily_post_exp_cap: 32,
+  daily_reply_exp_cap: 30
+})
 
 // OAuth 状态
 const githubEnabled = ref(false)
@@ -491,6 +525,14 @@ const loadUser = async () => {
     try {
       const security = await getSecurityStatus()
       hasPassword.value = security.has_password
+    } catch (e) {
+      // ignore
+    }
+    
+    // 加载等级信息
+    try {
+      const level = await getUserLevel()
+      levelInfo.value = level
     } catch (e) {
       // ignore
     }
@@ -905,6 +947,21 @@ loadBlockList()
   color: var(--text-primary);
   margin-bottom: 24px;
   letter-spacing: 1px;
+}
+
+/* 等级卡片 */
+.level-card {
+  .level-tips {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    
+    p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+  }
 }
 
 /* 头像部分 */

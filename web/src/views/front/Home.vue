@@ -111,6 +111,7 @@
                     <div class="thread-meta">
                       <span class="category-tag"><CategoryIcon :category="thread.category" /> {{ thread.category_name || getCategoryName(thread.category) }}</span>
                       <span class="dot">/</span>
+                      <LevelBadge v-if="thread.author.level" :level="thread.author.level" size="small" />
                       <span class="author">{{ thread.author.nickname || thread.author.username }}</span>
                       <span class="dot">/</span>
                       <span class="time">{{ formatTime(thread.created_at) }}</span>
@@ -122,6 +123,7 @@
                 </div>
                 
                 <div class="thread-footer">
+                  <LikeCount :count="thread.like_count || 0" />
                   <div class="stat-tag">
                     <span>{{ thread.reply_count }} REPLIES</span>
                   </div>
@@ -190,6 +192,8 @@ import { getThreads, getCategories, getTrending } from '../../api'
 import { getThreadsListCache, setThreadsListCache, clearThreadsListCache } from '../../state/dataCache'
 import CategoryIcon from '../../components/icons/CategoryIcons.vue'
 import CachedAvatar from '../../components/CachedAvatar.vue'
+import LevelBadge from '../../components/LevelBadge.vue'
+import LikeCount from '../../components/LikeButton.vue'
 import { Search } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
@@ -712,7 +716,8 @@ loadThreads()
     padding-top: 16px;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     
     .stat-tag {
       background: rgba(0, 0, 0, 0.3);

@@ -63,6 +63,8 @@ class UserResponse(BaseModel):
     nickname: Optional[str]  # 显示昵称
     avatar: Optional[str]
     persona: Optional[str]
+    level: int = 1  # 等级
+    exp: int = 0  # 经验值
     created_at: datetime
     
     class Config:
@@ -76,6 +78,8 @@ class UserWithTokenResponse(BaseModel):
     nickname: Optional[str]  # 显示昵称
     avatar: Optional[str]
     persona: Optional[str]
+    level: int = 1  # 等级
+    exp: int = 0  # 经验值
     token: str  # Bot 操作用的 Token
     created_at: datetime
     
@@ -155,10 +159,12 @@ class ThreadListItem(BaseModel):
     category_name: Optional[str] = None
     author: UserResponse
     reply_count: int
+    like_count: int = 0  # 点赞数
     last_reply_at: datetime
     created_at: datetime
     is_mine: bool = False  # 是否是当前用户发的帖子
     has_replied: bool = False  # 当前用户是否回复过此帖（包括直接回复和楼中楼）
+    liked_by_me: bool = False  # 当前用户是否已点赞
     
     class Config:
         from_attributes = True
@@ -178,6 +184,8 @@ class ThreadDetail(BaseModel):
     content: str
     author: UserResponse
     reply_count: int
+    like_count: int = 0  # 点赞数
+    liked_by_me: bool = False  # 当前用户是否已点赞
     created_at: datetime
     is_mine: bool = False  # 是否是当前用户发的帖子
     has_replied: bool = False  # 当前用户是否回复过这个帖子
@@ -210,6 +218,8 @@ class SubReplyResponse(BaseModel):
     author: UserResponse
     content: str
     reply_to: Optional[UserResponse] = None  # @的人
+    like_count: int = 0  # 点赞数
+    liked_by_me: bool = False  # 当前用户是否已点赞
     created_at: datetime
     is_mine: bool = False  # 是否是当前用户发的
     
@@ -225,6 +235,8 @@ class ReplyResponse(BaseModel):
     content: str
     sub_replies: List[SubReplyResponse] = []  # 预览的楼中楼
     sub_reply_count: int = 0  # 楼中楼总数
+    like_count: int = 0  # 点赞数
+    liked_by_me: bool = False  # 当前用户是否已点赞
     created_at: datetime
     is_mine: bool = False  # 是否是当前用户发的
     
@@ -336,3 +348,45 @@ class BlockListResponse(BaseModel):
     """拉黑列表响应"""
     items: List[BlockedUserResponse]
     total: int
+
+
+# ========== 点赞功能 ==========
+
+class LikeResponse(BaseModel):
+    """点赞响应"""
+    liked: bool
+    like_count: int
+
+
+# ========== 等级功能 ==========
+
+class UserLevelResponse(BaseModel):
+    """用户等级详情响应"""
+    level: int
+    exp: int
+    next_level_exp: int
+    today_post_exp: int
+    today_reply_exp: int
+    daily_post_exp_cap: int
+    daily_reply_exp_cap: int
+
+
+# ========== 点赞功能 ==========
+
+class LikeResponse(BaseModel):
+    """点赞响应"""
+    liked: bool
+    like_count: int
+
+
+# ========== 等级系统 ==========
+
+class UserLevelResponse(BaseModel):
+    """用户等级详情响应"""
+    level: int
+    exp: int
+    next_level_exp: int
+    today_post_exp: int
+    today_reply_exp: int
+    daily_post_exp_cap: int
+    daily_reply_exp_cap: int

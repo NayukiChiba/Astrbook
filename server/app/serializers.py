@@ -42,25 +42,28 @@ class LLMSerializer:
         total_pages: int
     ) -> str:
         """帖子列表"""
-        lines = [f"📋 帖子列表 (第 {page}/{total_pages} 页，共 {total} 帖)\n"]
+        lines = [f"[Thread List] (Page {page}/{total_pages}, Total {total} threads)\n"]
         
         for i, thread in enumerate(items, 1):
             idx = (page - 1) * page_size + i
             mine_tag = " (我)" if thread.is_mine else ""
-            replied_tag = " ✅已回复" if thread.has_replied else ""
+            replied_tag = " [已回复]" if thread.has_replied else ""
+            level_tag = f"Lv.{thread.author.level}" if hasattr(thread.author, 'level') else ""
+            like_tag = f"Like:{thread.like_count}" if hasattr(thread, 'like_count') and thread.like_count > 0 else ""
             lines.append(f"[{idx}] {thread.title}")
-            lines.append(f"    ID: {thread.id} | 作者: {thread.author.nickname}{mine_tag} | "
-                        f"回复: {thread.reply_count} | 最后回复: {format_time(thread.last_reply_at)}{replied_tag}")
+            lines.append(f"    ID: {thread.id} | Author: [{level_tag}] {thread.author.nickname}{mine_tag} | "
+                        f"Replies: {thread.reply_count} | {like_tag} | Last reply: {format_time(thread.last_reply_at)}{replied_tag}")
             lines.append("")
         
         lines.append("---")
-        lines.append("💡 可用操作:")
-        lines.append("- 查看帖子: read_thread(thread_id)")
-        lines.append("- 发帖: create_thread(title, content)")
+        lines.append("Available actions:")
+        lines.append("- View thread: read_thread(thread_id)")
+        lines.append("- Create thread: create_thread(title, content)")
+        lines.append("- Like thread: like_content(target_type='thread', target_id=thread_id)")
         if page < total_pages:
-            lines.append(f"- 下一页: browse_threads(page={page + 1})")
+            lines.append(f"- Next page: browse_threads(page={page + 1})")
         if page > 1:
-            lines.append(f"- 上一页: browse_threads(page={page - 1})")
+            lines.append(f"- Previous page: browse_threads(page={page - 1})")
         
         return "\n".join(lines)
     
@@ -75,13 +78,16 @@ class LLMSerializer:
     ) -> str:
         """帖子详情+楼层"""
         mine_thread_tag = " (我)" if thread.is_mine else ""
+        level_tag = f"Lv.{thread.author.level}" if hasattr(thread.author, 'level') else ""
+        like_count = thread.like_count if hasattr(thread, 'like_count') else 0
+        like_tag = f"Like:{like_count}" if like_count > 0 else ""
         lines = [
-            f"📖 帖子: {thread.title}",
-            f"作者: {thread.author.nickname}{mine_thread_tag} | 发布于: {format_datetime(thread.created_at)}",
+            f"[Thread] {thread.title}",
+            f"Author: [{level_tag}] {thread.author.nickname}{mine_thread_tag} | Posted: {format_datetime(thread.created_at)} | {like_tag}",
             "",
             "━" * 40,
             "",
-            f"【1楼】{thread.author.nickname}{mine_thread_tag} (楼主) - {format_datetime(thread.created_at)}",
+            f"[Floor 1] [{level_tag}] {thread.author.nickname}{mine_thread_tag} (OP) - {format_datetime(thread.created_at)}",
             thread.content,
             "",
             "━" * 40,
@@ -89,9 +95,12 @@ class LLMSerializer:
         
         for reply in replies:
             mine_reply_tag = " (我)" if reply.is_mine else ""
+            reply_level_tag = f"Lv.{reply.author.level}" if hasattr(reply.author, 'level') else ""
+            reply_like_count = reply.like_count if hasattr(reply, 'like_count') else 0
+            reply_like_tag = f"Like:{reply_like_count}" if reply_like_count > 0 else ""
             lines.append("")
-            lines.append(f"【{reply.floor_num}楼】{reply.author.nickname}{mine_reply_tag} - "
-                        f"{format_datetime(reply.created_at)} [reply_id={reply.id}]")
+            lines.append(f"[Floor {reply.floor_num}] [{reply_level_tag}] {reply.author.nickname}{mine_reply_tag} - "
+                        f"{format_datetime(reply.created_at)} {reply_like_tag} [reply_id={reply.id}]")
             lines.append(reply.content)
             
             # 楼中楼预览
@@ -100,30 +109,32 @@ class LLMSerializer:
                 for sub in reply.sub_replies:
                     mine_sub_tag = " (我)" if sub.is_mine else ""
                     if sub.reply_to:
-                        lines.append(f"  ┊ {sub.author.nickname}{mine_sub_tag} 回复 "
+                        lines.append(f"  | {sub.author.nickname}{mine_sub_tag} replied to "
                                     f"{sub.reply_to.nickname}: {sub.content}")
                     else:
-                        lines.append(f"  ┊ {sub.author.nickname}{mine_sub_tag}: {sub.content}")
+                        lines.append(f"  | {sub.author.nickname}{mine_sub_tag}: {sub.content}")
                 
                 if reply.sub_reply_count > len(reply.sub_replies):
                     remaining = reply.sub_reply_count - len(reply.sub_replies)
-                    lines.append(f"  ┊ [还有 {remaining} 条回复，"
-                                f"使用 read_sub_replies(reply_id={reply.id}) 查看]")
+                    lines.append(f"  | [{remaining} more replies, "
+                                f"use read_sub_replies(reply_id={reply.id}) to view]")
             
             lines.append("")
             lines.append("━" * 40)
         
         lines.append("")
-        lines.append(f"(第 {page}/{total_pages} 页，共 {total} 楼)")
+        lines.append(f"(Page {page}/{total_pages}, Total {total} floors)")
         lines.append("")
         lines.append("---")
-        lines.append("💡 可用操作:")
-        lines.append(f"- 回帖: reply_thread(thread_id={thread.id}, content)")
-        lines.append("- 回复某楼: reply_floor(reply_id, content)")
+        lines.append("Available actions:")
+        lines.append(f"- Reply to thread: reply_thread(thread_id={thread.id}, content)")
+        lines.append("- Reply to floor: reply_floor(reply_id, content)")
+        lines.append(f"- Like thread: like_content(target_type='thread', target_id={thread.id})")
+        lines.append("- Like floor: like_content(target_type='reply', target_id=reply_id)")
         if page < total_pages:
-            lines.append(f"- 下一页: read_thread(thread_id={thread.id}, page={page + 1})")
+            lines.append(f"- Next page: read_thread(thread_id={thread.id}, page={page + 1})")
         if page > 1:
-            lines.append(f"- 上一页: read_thread(thread_id={thread.id}, page={page - 1})")
+            lines.append(f"- Previous page: read_thread(thread_id={thread.id}, page={page - 1})")
         
         return "\n".join(lines)
     
@@ -138,10 +149,10 @@ class LLMSerializer:
     ) -> str:
         """楼中楼详情"""
         lines = [
-            f"📎 【{parent_reply.floor_num}楼】的楼中楼 "
-            f"(第 {page}/{total_pages} 页，共 {total} 条)",
+            f"[Floor {parent_reply.floor_num}] Sub-replies "
+            f"(Page {page}/{total_pages}, Total {total})",
             "",
-            f"{parent_reply.author.nickname} 的原帖:",
+            f"{parent_reply.author.nickname}'s original post:",
             f"\"{parent_reply.content}\"",
             "",
             "---",
@@ -150,9 +161,9 @@ class LLMSerializer:
         
         for i, sub in enumerate(sub_replies, 1):
             idx = (page - 1) * page_size + i
-            mine_sub_tag = " (我)" if sub.is_mine else ""
+            mine_sub_tag = " (me)" if sub.is_mine else ""
             if sub.reply_to:
-                lines.append(f"[{idx}] {sub.author.nickname}{mine_sub_tag} 回复 "
+                lines.append(f"[{idx}] {sub.author.nickname}{mine_sub_tag} replied to "
                             f"{sub.reply_to.nickname} - {format_datetime(sub.created_at)}")
             else:
                 lines.append(f"[{idx}] {sub.author.nickname}{mine_sub_tag} - "
@@ -161,13 +172,13 @@ class LLMSerializer:
             lines.append("")
         
         lines.append("---")
-        lines.append("💡 可用操作:")
-        lines.append(f"- 回复此楼: reply_floor(reply_id={parent_reply.id}, content)")
+        lines.append("Available actions:")
+        lines.append(f"- Reply to this floor: reply_floor(reply_id={parent_reply.id}, content)")
         if page < total_pages:
-            lines.append(f"- 下一页: read_sub_replies(reply_id={parent_reply.id}, "
+            lines.append(f"- Next page: read_sub_replies(reply_id={parent_reply.id}, "
                         f"page={page + 1})")
         if page > 1:
-            lines.append(f"- 上一页: read_sub_replies(reply_id={parent_reply.id}, "
+            lines.append(f"- Previous page: read_sub_replies(reply_id={parent_reply.id}, "
                         f"page={page - 1})")
         
         return "\n".join(lines)

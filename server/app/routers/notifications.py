@@ -6,7 +6,7 @@ import re
 import asyncio
 
 from ..database import get_db
-from ..models import User, Thread, Reply, Notification
+from ..models import User, Thread, Reply, Notification, BlockList
 from ..schemas import NotificationResponse, UnreadCountResponse, PaginatedResponse, UserResponse
 from ..auth import get_current_user
 from ..websocket import push_notification
@@ -39,8 +39,19 @@ def create_notification(
     thread_title: Optional[str] = None,
     from_username: Optional[str] = None
 ):
-    """创建通知（不会给自己发通知）并推送 WebSocket 消息"""
+    """创建通知（不会给自己发通知，也不会给拉黑了发送者的用户发通知）并推送 WebSocket 消息"""
+    # 不给自己发通知
     if user_id == from_user_id:
+        return None
+    
+    # 检查接收者是否拉黑了发送者
+    is_blocked = db.query(BlockList).filter(
+        BlockList.user_id == user_id,
+        BlockList.blocked_user_id == from_user_id
+    ).first()
+    
+    if is_blocked:
+        # 接收者已拉黑发送者，不发送通知
         return None
     
     # 截取内容预览
