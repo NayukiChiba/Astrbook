@@ -1,0 +1,147 @@
+// ============================================
+// 经典酸性主题 (Classic Acid)
+// 毛玻璃 + 霓虹发光效果，大圆角设计
+// ============================================
+
+:root[data-theme="acid"] {
+  color-scheme: dark;
+
+  // ====== 颜色系统 ======
+  // 酸性色彩
+  --acid-green: #ccff00;
+  --acid-purple: #b026ff;
+  --acid-pink: #ff00cc;
+  --acid-blue: #00ffff;
+
+  // 背景色
+  --bg-primary: #0f0f11;
+  --bg-secondary: rgba(30, 30, 30, 0.4);
+  --bg-tertiary: rgba(255, 255, 255, 0.05);
+  --bg-elevated: #2a2a2a;
+
+  // 边框色
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-light: rgba(255, 255, 255, 0.2);
+
+  // 品牌色
+  --primary-color: #b026ff;
+  --primary-hover: #c557ff;
+
+  // 强调色
+  --accent-purple: var(--acid-purple);
+  --accent-blue: var(--acid-blue);
+  --accent-cyan: var(--acid-blue);
+
+  // 文字颜色
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-tertiary: rgba(255, 255, 255, 0.55);
+  --text-disabled: rgba(255, 255, 255, 0.3);
+
+  // ====== 布局/间距（更大、更有呼吸感） ======
+  --header-height: 72px;
+  --page-padding: 32px;
+  --card-padding: 24px;
+  --card-radius: 24px;
+  --btn-radius: 12px;
+  --gap-xs: 6px;
+  --gap-sm: 12px;
+  --gap-md: 20px;
+  --gap-lg: 32px;
+  --gap-xl: 48px;
+
+  // ====== 效果 ======
+  // 阴影
+  --card-shadow: 
+    0 8px 32px 0 rgba(0, 0, 0, 0.37),
+    inset 1px 1px 0 0 rgba(255, 255, 255, 0.1),
+    inset -1px -1px 0 0 rgba(0, 0, 0, 0.2);
+  --dropdown-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+
+  // 毛玻璃
+  --blur-amount: 16px;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-highlight: rgba(255, 255, 255, 0.2);
+  --glass-shadow: rgba(0, 0, 0, 0.5);
+
+  // 发光效果
+  --glow-intensity: 1;
+  --surface-gradient: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.01) 100%);
+  --inner-glow: inset 0 0 20px rgba(176, 38, 255, 0.05);
+
+  // ====== 动画（更流畅） ======
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --duration-fast: 180ms;
+  --duration: 260ms;
+  --duration-leave: 120ms;
+
+  // ====== Element Plus 适配 ======
+  --el-skeleton-color: rgba(255, 255, 255, 0.06);
+  --el-skeleton-to-color: rgba(255, 255, 255, 0.14);
+
+  // ====== 组件特定样式（保持主分支原有风格） ======
+  // 标题样式 - 渐变发光
+  --title-font-size: 42px;
+  --title-gradient: linear-gradient(135deg, #fff 0%, var(--acid-blue) 100%);
+  --title-text-fill: transparent;
+  --title-filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.3));
+  
+  // 搜索框 hover - 酸性绿发光
+  --search-hover-bg: rgba(30, 238, 62, 0.1);
+  --search-hover-border: var(--acid-green);
+  --search-hover-color: var(--acid-green);
+  
+  // 分类激活样式 - 酸性绿
+  --category-active-bg: var(--acid-green);
+  --category-active-border: var(--acid-green);
+  --category-active-color: #000;
+  
+  // 卡片悬停 - 有变换和阴影
+  --card-hover-transform: translateY(-2px);
+  --card-hover-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+// ====== Acid 主题特有的背景动画 ======
+html[data-theme="acid"] body {
+  background-color: #0f0f11;
+}
+
+html[data-theme="acid"] #app::before {
+  content: '';
+  position: fixed;
+  display: block;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: 
+    radial-gradient(circle at 50% 50%, rgba(176, 38, 255, 0.15), transparent 50%),
+    radial-gradient(circle at 20% 30%, rgba(204, 255, 0, 0.1), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1), transparent 40%);
+  z-index: -1;
+  filter: blur(60px);
+  animation: acid-fluid-move 20s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes acid-fluid-move {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  100% { transform: translate(-5%, -5%) rotate(5deg); }
+}
+
+// 移动端优化
+@media (max-width: 768px) {
+  :root[data-theme="acid"] {
+    --page-padding: 20px;
+    --header-height: 64px;
+    --blur-amount: 12px;
+    --card-radius: 18px;
+  }
+
+  html[data-theme="acid"] #app::before {
+    filter: blur(46px);
+    animation: none;
+  }
+}

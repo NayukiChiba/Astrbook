@@ -1,3 +1,12 @@
+// ============================================
+// 全局基础样式
+// 仅包含重置样式和通用布局，主题变量已分离到 themes/ 目录
+// ============================================
+
+// 导入所有主题
+@use './themes/index.scss';
+
+// ====== 基础重置 ======
 * {
   margin: 0;
   padding: 0;
@@ -12,7 +21,7 @@ body {
   font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--bg-primary); 
+  background-color: var(--bg-primary);
   color: var(--text-primary);
   overflow-x: hidden;
   min-height: 100vh;
@@ -27,190 +36,12 @@ textarea {
   font: inherit;
 }
 
-// 扁平化、现代化论坛风格变量
+// ====== 安全区域支持 ======
 :root {
-  color-scheme: dark;
-  
-  // 基础背景色 (Modern Flat Dark)
-  --bg-primary: #121212;   // 页面背景
-  --bg-secondary: #1e1e1e; // 卡片/容器背景
-  --bg-tertiary: #2d2d2d;  // 悬停/输入框背景
-  --bg-elevated: #333333;  // 弹窗/下拉菜单
-  
-  // 边框色
-  --border-color: #333333;
-  --border-light: #444444;
-
-  // 品牌色 (Modern Blue)
-  --primary-color: #3c96ca;
-  --primary-hover: #2288b7;
-  
-  // 兼容旧变量名称，映射到新扁平风格
-  --acid-green: #3c96ca; 
-  --acid-purple: #3c96ca;
-  --acid-pink: #3c96ca;
-  --acid-blue: #3c96ca;
-  
-  // 玻璃与材质 (Glass & Material) -> 扁平化映射
-  --glass-bg: var(--bg-secondary);
-  --glass-border: var(--border-color);
-  --glass-highlight: rgba(255, 255, 255, 0.05);
-  --glass-shadow: rgba(0, 0, 0, 0.3);
-  --blur-amount: 0px; // 去除模糊
-  
-  // 拟物/光影 -> 去除
-  --surface-gradient: var(--bg-secondary);
-  --inner-glow: none;
-  
-  // 文字颜色
-  --text-primary: #e0e0e0;
-  --text-secondary: #a0a0a0;
-  --text-disabled: #666666;
-  --text-tertiary: #808080;
-  
-  // 阴影与圆角 (Modern + Flat)
-  --card-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-  
-  --card-radius: 8px; // 论坛风格通常圆角较小
-  --btn-radius: 4px;
-
-  // Accent aliases
-  --accent-purple: var(--primary-color);
-  --accent-blue: var(--primary-color);
-  --accent-cyan: var(--primary-color);
-
-  // Element Plus skeleton colors
-  --el-skeleton-color: var(--bg-tertiary);
-  --el-skeleton-to-color: var(--bg-elevated);
-
-  // Motion tokens
-  --ease-out: cubic-bezier(0.2, 0, 0, 1);
-  --ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --duration-fast: 150ms;
-  --duration: 200ms;
-  --duration-leave: 100ms;
-
-  // Layout tokens
-  --page-padding: 24px;
-  --header-height: 64px;
   --safe-top: 0px;
   --safe-right: 0px;
   --safe-bottom: 0px;
   --safe-left: 0px;
-}
-
-:root[data-theme="light"] {
-  color-scheme: light;
-
-  // 基础背景色 (Modern Flat Light)
-  --bg-primary: #f5f7fa;   // 稍带灰的背景，不刺眼
-  --bg-secondary: #ffffff; // 卡片纯白
-  --bg-tertiary: #f0f2f5;  // 输入框/悬停
-  --bg-elevated: #ffffff;  // 弹窗
-  
-  // 边框色
-  --border-color: #e4e7ed;
-  --border-light: #EBEEF5;
-
-  // 品牌色 (保持一致或微调)
-  --primary-color: #3c96ca;
-  --primary-hover: #2288b7;
-  
-  --acid-green: #3c96ca; 
-  --acid-purple: #3c96ca;
-  --acid-pink: #3c96ca;
-  --acid-blue: #3c96ca;
-  
-  --glass-bg: var(--bg-secondary);
-  --glass-border: var(--border-color);
-  --glass-highlight: rgba(0, 0, 0, 0.02);
-  --glass-shadow: rgba(0, 0, 0, 0.05);
-  
-  --surface-gradient: var(--bg-secondary);
-  --inner-glow: none;
-  
-  // 文字颜色
-  --text-primary: #303133;
-  --text-secondary: #606266;
-  --text-disabled: #909399;
-  --text-tertiary: #a8abb2;
-
-  // 阴影
-  --card-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
-
-  --el-skeleton-color: #f0f2f5;
-  --el-skeleton-to-color: #e4e7ed;
-}
-
-// ------------------------------------------
-// Previous Theme (Acid / Glassmorphism)
-// ------------------------------------------
-:root[data-theme="acid"] {
-  color-scheme: dark;
-
-  // 酸性色彩 (Acid Colors)
-  --acid-green: #ccff00;
-  --acid-purple: #b026ff;
-  --acid-pink: #ff00cc;
-  --acid-blue: #00ffff;
-
-  // 基础背景 (复原)
-  --bg-primary: #0f0f11;
-  --bg-secondary: rgba(30, 30, 30, 0.4); // 半透明以配合模糊
-  --bg-tertiary: rgba(255, 255, 255, 0.05);
-  --bg-elevated: #2a2a2a;
-  
-  --border-color: rgba(255, 255, 255, 0.1);
-  --border-light: rgba(255, 255, 255, 0.2);
-
-  // 品牌色 (Acid)
-  --primary-color: #b026ff;
-  --primary-hover: #c557ff;
-
-  // 玻璃与材质
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-highlight: rgba(255, 255, 255, 0.2);
-  --glass-shadow: rgba(0, 0, 0, 0.5);
-  --blur-amount: 16px;
-
-  // 拟物/光影
-  --surface-gradient: linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.01) 100%);
-  --inner-glow: inset 0 0 20px rgba(176, 38, 255, 0.05);
-  
-  // 文字颜色 (更亮一点以对比)
-  --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  
-  --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  --card-radius: 20px;
-}
-
-// Global Background Animation for Acid Theme
-html[data-theme="acid"] body {
-  background-color: #0f0f11;
-}
-
-html[data-theme="acid"] {
-  // 定义伪元素变量，或者直接在这里写样式
-}
-// 只有在 acid 模式下才显示背景光斑
-html[data-theme="acid"] #app::before {
-  content: '';
-  position: fixed;
-  display: block;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: 
-    radial-gradient(circle at 50% 50%, rgba(176, 38, 255, 0.15), transparent 50%),
-    radial-gradient(circle at 20% 30%, rgba(204, 255, 0, 0.1), transparent 40%),
-    radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1), transparent 40%);
-  z-index: -1;
-  filter: blur(60px);
-  animation: fluid-move 20s ease-in-out infinite alternate;
-  pointer-events: none;
 }
 
 @supports (padding: env(safe-area-inset-top)) {
@@ -222,104 +53,117 @@ html[data-theme="acid"] #app::before {
   }
 }
 
+// ====== 默认隐藏背景动画（仅 acid 主题启用） ======
 #app::before {
   display: none;
 }
 
-@keyframes fluid-move {
-  0% { transform: translate(0, 0) rotate(0deg); }
-  100% { transform: translate(-5%, -5%) rotate(5deg); }
-}
-
+// ====== 响应式布局调整 ======
 @media (max-width: 768px) {
   :root {
     --page-padding: 16px;
     --header-height: 56px;
-    --blur-amount: 0px;
-    --card-radius: 6px;
-  }
-
-  #app::before {
-    display: none;
   }
 }
 
-// 滚动条美化
+// ====== 滚动条美化 ======
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--bg-tertiary);
   border-radius: 4px;
+
   &:hover {
     background: var(--border-light);
   }
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-// 链接样式
+// ====== 链接样式 ======
 a {
   text-decoration: none;
   color: var(--primary-color);
-  transition: color 0.15s;
-  
+  transition: color var(--duration-fast);
+
   &:hover {
     color: var(--primary-hover);
-    text-decoration: underline; // Forum style often has underline
   }
 }
 
-// 卡片基础样式
+// ====== 卡片基础样式 ======
 .card {
   background: var(--bg-secondary);
   border-radius: var(--card-radius);
-  // box-shadow: var(--card-shadow);
-  padding: 24px;
+  padding: var(--card-padding);
   border: 1px solid var(--border-color);
-  box-shadow: none; 
 }
 
-// 渐变卡片 (调整为纯色)
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-amount));
+  -webkit-backdrop-filter: blur(var(--blur-amount));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
+    opacity: calc(var(--glow-intensity, 0) * 0.5);
+  }
+}
+
+// ====== 渐变卡片 ======
 .gradient-card {
   border-radius: var(--card-radius);
-  padding: 24px;
+  padding: var(--card-padding);
   color: white;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  
-  &.purple, &.blue, &.green, &.pink {
+
+  &.purple,
+  &.blue,
+  &.green,
+  &.pink {
     background: var(--bg-secondary);
     border-color: var(--primary-color);
   }
 }
 
-// 页面标题
+// ====== 页面标题 ======
 .page-title {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-  
+  gap: var(--gap-md);
+  margin-bottom: var(--gap-lg);
+
   .icon {
     font-size: 24px;
     color: var(--text-secondary);
   }
-  
+
   .text {
     h2 {
       font-size: 22px;
-      font-weight: 400; // Google 风格标题字重较轻
+      font-weight: 400;
       color: var(--text-primary);
-      margin-bottom: 4px;
+      margin-bottom: var(--gap-xs);
     }
-    
+
     p {
       font-size: 14px;
       color: var(--text-secondary);
@@ -327,60 +171,74 @@ a {
   }
 }
 
-// Vue transitions
+// ====== Vue 路由过渡动画 ======
 .route-enter-active,
 .route-leave-active {
   will-change: opacity, transform;
 }
+
 .route-enter-active {
   transition: opacity var(--duration) var(--ease-out), transform var(--duration) var(--ease-out);
 }
+
 .route-leave-active {
   transition: opacity var(--duration-leave) var(--ease-in), transform var(--duration-leave) var(--ease-in);
 }
+
 .route-enter-from {
   opacity: 0;
   transform: translateY(10px);
 }
+
 .route-leave-to {
   opacity: 0;
   transform: translateY(-10px);
 }
 
+// ====== 淡入滑动动画 ======
 .fade-slide-enter-active,
 .fade-slide-leave-active {
   transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration) var(--ease-out);
 }
+
 .fade-slide-enter-from {
   opacity: 0;
   transform: translateY(8px);
 }
+
 .fade-slide-leave-to {
   opacity: 0;
   transform: translateY(-8px);
 }
 
+// ====== 列表动画 ======
 .list-enter-active,
 .list-leave-active {
   transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration) var(--ease-out);
 }
+
 .list-enter-from {
   opacity: 0;
   transform: translateY(12px);
 }
+
 .list-leave-to {
   opacity: 0;
   transform: translateY(-12px);
 }
+
 .list-move {
   transition: transform var(--duration) var(--ease-out);
 }
+
 .list-leave-active {
   position: absolute;
   width: 100%;
 }
 
+// ====== 减少动效支持 ======
 @media (prefers-reduced-motion: reduce) {
+
   .route-enter-active,
   .route-leave-active,
   .fade-slide-enter-active,
@@ -392,35 +250,35 @@ a {
   }
 }
 
-// Modern Flat Select Dropdown
+// ====== Element Plus Select 下拉菜单样式 ======
 .acid-select-dropdown.el-popper.el-select__popper {
   background: var(--bg-elevated) !important;
   border: 1px solid var(--border-color) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important; // shadow-md
-  border-radius: 4px !important;
+  backdrop-filter: blur(var(--blur-amount)) !important;
+  -webkit-backdrop-filter: blur(var(--blur-amount)) !important;
+  box-shadow: var(--dropdown-shadow) !important;
+  border-radius: var(--btn-radius) !important;
   overflow: hidden;
   padding: 4px !important;
-  
+
   .el-popper__arrow {
-    display: none !important; // Hide arrow for cleaner look
+    display: none !important;
   }
-  
+
   .el-select-dropdown {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
   }
-  
+
   .el-select-dropdown__wrap {
     max-height: none !important;
   }
-  
+
   .el-select-dropdown__list {
     padding: 0 !important;
   }
-  
+
   .el-select-dropdown__item {
     color: var(--text-primary) !important;
     font-size: 14px !important;
@@ -428,26 +286,27 @@ a {
     height: auto !important;
     line-height: 1.5 !important;
     margin: 0 !important;
-    border-radius: 2px !important;
+    border-radius: calc(var(--btn-radius) / 2) !important;
     transition: background-color 0.1s ease !important;
     background: transparent !important;
-    
-    // hover 样式
-    &:hover, &.hover, &.is-hovering {
+
+    &:hover,
+    &.hover,
+    &.is-hovering {
       background-color: var(--bg-tertiary) !important;
       color: var(--text-primary) !important;
       box-shadow: none !important;
     }
-    
-    // 选中样式
-    &.is-selected, &.selected {
+
+    &.is-selected,
+    &.selected {
       color: var(--primary-color) !important;
       font-weight: 500 !important;
       background-color: transparent !important;
       position: relative;
-      
+
       &::after {
-        content: ""; 
+        content: "";
         position: absolute;
         right: 12px;
         top: 50%;
@@ -457,7 +316,7 @@ a {
         background-color: var(--primary-color);
         border-radius: 50%;
       }
-      
+
       &:hover {
         background-color: var(--bg-tertiary) !important;
       }

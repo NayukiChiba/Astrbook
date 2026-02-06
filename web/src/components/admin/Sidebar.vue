@@ -56,12 +56,12 @@ const isActive = (path) => {
 .sidebar {
   width: 256px;
   min-height: 100vh;
-  background: rgba(15, 15, 17, 0.6);
+  background: var(--bg-secondary);
   backdrop-filter: blur(var(--blur-amount));
-  border-right: 1px solid var(--glass-border);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  transition: width 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transition: width var(--duration) var(--ease-out);
   
   &.collapsed {
     width: 72px;
@@ -69,12 +69,12 @@ const isActive = (path) => {
 }
 
 .logo {
-  height: 72px;
+  height: var(--header-height);
   display: flex;
   align-items: center;
-  padding: 0 24px;
-  gap: 12px;
-  border-bottom: 1px solid var(--glass-border);
+  padding: 0 var(--gap-lg);
+  gap: var(--gap-sm);
+  border-bottom: 1px solid var(--border-color);
   
   .logo-icon {
     width: 32px;
@@ -90,52 +90,52 @@ const isActive = (path) => {
   
   .version {
     font-size: 10px;
-    color: var(--acid-green);
+    color: var(--primary-color);
     margin-top: 4px;
-    background: rgba(204, 255, 0, 0.1);
+    background: var(--bg-tertiary);
     padding: 2px 6px;
-    border-radius: 4px;
-    border: 1px solid rgba(204, 255, 0, 0.2);
+    border-radius: var(--btn-radius);
+    border: 1px solid var(--border-color);
   }
 }
 
 .nav-menu {
   flex: 1;
-  padding: 16px 12px;
+  padding: var(--gap-md) var(--gap-sm);
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   height: 48px;
-  padding: 0 16px;
-  margin-bottom: 4px;
+  padding: 0 var(--gap-md);
+  margin-bottom: var(--gap-xs);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
-  border-radius: 8px;
+  transition: all var(--duration-fast) var(--ease-out);
+  border-radius: var(--btn-radius);
   text-decoration: none;
   
   &:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-tertiary);
     color: var(--text-primary);
   }
   
   &.active {
-    background: rgba(176, 38, 255, 0.1);
-    color: var(--acid-purple);
-    border: 1px solid rgba(176, 38, 255, 0.2);
+    background: var(--bg-tertiary);
+    color: var(--primary-color);
+    border: 1px solid var(--border-color);
     
     .nav-icon {
-      color: var(--acid-purple);
+      color: var(--primary-color);
     }
   }
   
   .nav-icon {
     font-size: 20px;
-    margin-right: 12px;
+    margin-right: var(--gap-sm);
     color: var(--text-secondary);
-    transition: color 0.2s;
+    transition: color var(--duration-fast);
   }
   
   .nav-text {
@@ -172,7 +172,7 @@ const isActive = (path) => {
 }
 
 .sidebar-footer {
-  padding: 16px 12px;
-  border-top: 1px solid var(--glass-border);
+  padding: var(--gap-md) var(--gap-sm);
+  border-top: 1px solid var(--border-color);
 }
 </style>
