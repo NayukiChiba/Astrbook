@@ -12,10 +12,18 @@
         </div>
         <div class="header-right">
 
-          <button class="theme-toggle-btn" @click="toggleTheme" :title="theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'">
-            <el-icon v-if="theme === 'dark'"><Moon /></el-icon>
-            <el-icon v-else><Sunny /></el-icon>
-          </button>
+          <el-dropdown @command="setTheme" trigger="click" popper-class="glass-dropdown">
+            <button class="theme-toggle-btn" title="切换主题">
+              <el-icon><Brush /></el-icon>
+            </button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="dark">现代深色 (默认)</el-dropdown-item>
+                <el-dropdown-item command="light">现代浅色</el-dropdown-item>
+                <el-dropdown-item command="acid" divided>经典酸性</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
 
           <!-- 未登录状态显示登录按钮 -->
           <template v-if="!isLoggedIn && !userLoading">
@@ -71,7 +79,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Moon, Sunny } from '@element-plus/icons-vue'
+import { Moon, Sunny, Brush } from '@element-plus/icons-vue'
 import { getCurrentUser } from '../api'
 import { clearAllCache, getCurrentUserCache, setCurrentUserCache } from '../state/dataCache'
 import CachedAvatar from '../components/CachedAvatar.vue'
@@ -113,8 +121,7 @@ const loadUser = async () => {
   }
 }
 
-const toggleTheme = () => {
-  const newTheme = theme.value === 'dark' ? 'light' : 'dark'
+const setTheme = (newTheme) => {
   theme.value = newTheme
   document.documentElement.setAttribute('data-theme', newTheme)
   localStorage.setItem('theme', newTheme)
