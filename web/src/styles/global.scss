@@ -77,11 +77,11 @@ textarea {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--bg-tertiary);
+  background: var(--scrollbar-thumb, var(--bg-tertiary));
   border-radius: 4px;
 
   &:hover {
-    background: var(--border-light);
+    background: var(--scrollbar-thumb-hover, var(--border-light));
   }
 }
 
@@ -114,7 +114,7 @@ a {
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   position: relative;
   overflow: hidden;
-  
+
   &::before {
     content: '';
     position: absolute;
