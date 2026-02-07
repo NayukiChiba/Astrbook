@@ -7,7 +7,18 @@
         <p>查看和管理所有帖子</p>
       </div>
     </div>
-    
+
+    <div class="search-bar">
+      <el-input
+        v-model="searchQuery"
+        placeholder="搜索帖子标题或内容..."
+        :prefix-icon="Search"
+        clearable
+        @input="handleSearch"
+        class="search-input"
+      />
+    </div>
+
     <div class="card">
       <el-skeleton v-if="loading && threads.length === 0" :rows="8" animated />
 
@@ -28,16 +39,16 @@
           </el-table-column>
           <el-table-column label="分类" width="160">
             <template #default="{ row }">
-              <el-select 
-                v-model="row.category" 
+              <el-select
+                v-model="row.category"
                 size="small"
                 @change="handleCategoryChange(row)"
                 class="category-select"
               >
-                <el-option 
-                  v-for="cat in categories" 
-                  :key="cat.key" 
-                  :label="cat.name" 
+                <el-option
+                  v-for="cat in categories"
+                  :key="cat.key"
+                  :label="cat.name"
                   :value="cat.key"
                 >
                   <div class="category-option">
@@ -71,9 +82,9 @@
           </el-table-column>
           <el-table-column label="操作" width="80" fixed="right">
             <template #default="{ row }">
-              <el-button 
-                type="danger" 
-                text 
+              <el-button
+                type="danger"
+                text
                 size="small"
                 @click="handleDelete(row)"
               >
@@ -82,7 +93,7 @@
             </template>
           </el-table-column>
         </el-table>
-        
+
         <div class="pagination-wrapper">
           <el-pagination
             v-model:current-page="page"
@@ -103,14 +114,16 @@
 defineOptions({ name: 'AdminThreads' })
 
 import { ref, onMounted } from 'vue'
-import { getThreads, getCategories, adminDeleteThread, adminUpdateThreadCategory } from '../../api'
+import { getAdminThreads, getCategories, adminDeleteThread, adminUpdateThreadCategory } from '../../api'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getThreadsListCache, setThreadsListCache, clearThreadsListCache } from '../../state/dataCache'
 import CategoryIcon from '../../components/icons/CategoryIcons.vue'
+import { Search } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 const threads = ref([])
 const categories = ref([])
+const searchQuery = ref('')
 const loading = ref(true)
 const page = ref(1)
 const pageSize = ref(20)
@@ -118,6 +131,15 @@ const total = ref(0)
 
 const formatTime = (time) => {
   return dayjs(time).format('YYYY-MM-DD HH:mm')
+}
+
+let searchTimer = null
+const handleSearch = () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    page.value = 1
+    loadThreads({ force: true })
+  }, 300)
 }
 
 const loadCategories = async () => {
@@ -130,7 +152,7 @@ const loadCategories = async () => {
 
 const loadThreads = async (options = {}) => {
   const force = options?.force === true
-  if (!force) {
+  if (!force && !searchQuery.value) {
     const cached = getThreadsListCache(page.value, pageSize.value)
     if (cached) {
       threads.value = cached.items || []
@@ -142,8 +164,13 @@ const loadThreads = async (options = {}) => {
 
   loading.value = true
   try {
-    const res = await getThreads({ page: page.value, page_size: pageSize.value })
-    const cachedRes = setThreadsListCache(page.value, pageSize.value, res)
+    const params = { page: page.value, page_size: pageSize.value }
+    if (searchQuery.value) params.q = searchQuery.value
+
+    const res = await getAdminThreads(params)
+
+    const cachedRes = !searchQuery.value ? setThreadsListCache(page.value, pageSize.value, res) : res
+
     threads.value = cachedRes.items || []
     total.value = cachedRes.total || 0
   } catch (error) {
@@ -157,11 +184,9 @@ const handleCategoryChange = async (row) => {
   try {
     const res = await adminUpdateThreadCategory(row.id, row.category)
     ElMessage.success(`分类已更改为: ${res.category_name}`)
-    // 清除缓存以便下次刷新
     clearThreadsListCache()
   } catch (error) {
     ElMessage.error('修改分类失败')
-    // 恢复原值 - 重新加载
     loadThreads({ force: true })
   }
 }
@@ -200,12 +225,12 @@ loadThreads()
   align-items: center;
   gap: 16px;
   margin-bottom: 32px;
-  
+
   .icon {
     font-size: 32px;
     filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.2));
   }
-  
+
   .text {
     h2 {
       font-size: 24px;
@@ -215,10 +240,29 @@ loadThreads()
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    
+
     p {
       color: var(--text-secondary);
       font-size: 14px;
+    }
+  }
+}
+
+.search-bar {
+  margin-bottom: 24px;
+
+  .search-input {
+    max-width: 300px;
+
+    :deep(.el-input__wrapper) {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--glass-border);
+      box-shadow: none;
+      border-radius: 12px;
+
+      &.is-focus {
+        border-color: var(--acid-purple);
+      }
     }
   }
 }
@@ -236,7 +280,7 @@ loadThreads()
   text-decoration: none;
   font-weight: 500;
   transition: color 0.2s;
-  
+
   &:hover {
     color: var(--acid-purple);
   }
@@ -246,7 +290,7 @@ loadThreads()
   display: flex;
   align-items: center;
   gap: 10px;
-  
+
   span {
     color: var(--text-secondary);
   }
@@ -261,7 +305,7 @@ loadThreads()
   display: flex;
   align-items: center;
   gap: 8px;
-  
+
   .category-icon {
     width: 16px;
     height: 16px;
@@ -274,12 +318,12 @@ loadThreads()
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--glass-border);
     box-shadow: none;
-    
+
     &:hover {
       border-color: var(--acid-purple);
     }
   }
-  
+
   .el-input__inner {
     color: var(--text-primary);
   }
@@ -298,19 +342,19 @@ loadThreads()
   --el-table-header-bg-color: transparent;
   --el-table-tr-bg-color: transparent;
   --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.05);
-  
+
   th.el-table__cell {
     background: transparent;
     color: var(--text-secondary);
     font-weight: 500;
     border-bottom: 1px solid var(--glass-border);
   }
-  
+
   td.el-table__cell {
     border-bottom: 1px solid var(--glass-border);
     color: var(--text-primary);
   }
-  
+
   .el-table__inner-wrapper::before {
     display: none;
   }
@@ -321,17 +365,17 @@ loadThreads()
   --el-pagination-bg-color: transparent;
   --el-pagination-button-disabled-bg-color: transparent;
   --el-pagination-hover-color: var(--acid-purple);
-  
+
   .el-pager li {
     background: transparent;
     color: var(--text-secondary);
-    
+
     &.is-active {
       color: var(--acid-purple);
       font-weight: bold;
     }
   }
-  
+
   button {
     background: transparent;
     color: var(--text-secondary);

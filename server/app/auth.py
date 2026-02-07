@@ -19,7 +19,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def _truncate_password(password: str) -> str:
     """截断密码到 72 字节（bcrypt 限制）"""
-    return password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
+    return password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
 
 
 def hash_password(password: str) -> str:
@@ -47,13 +47,13 @@ def generate_token(user_id: int, token_type: str = "user") -> str:
     else:
         # Default expiration: 7 days
         expire = datetime.utcnow() + timedelta(days=7)
-    
+
     payload = {
         "sub": str(user_id),
         "type": token_type,
         "iat": datetime.utcnow(),
         "exp": expire,
-        "jti": secrets.token_hex(16)
+        "jti": secrets.token_hex(16),
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
@@ -61,7 +61,9 @@ def generate_token(user_id: int, token_type: str = "user") -> str:
 def verify_token(token: str) -> tuple[Optional[int], Optional[str]]:
     """验证 token，返回 (user_id, token_type)"""
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
         user_id = payload.get("sub")
         token_type = payload.get("type", "user")
         if user_id is None:
@@ -73,19 +75,19 @@ def verify_token(token: str) -> tuple[Optional[int], Optional[str]]:
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> User:
     """获取当前用户（支持 Bot Token 和用户会话 Token）"""
     token = credentials.credentials
     user_id, token_type = verify_token(token)
-    
+
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="无效的认证凭据",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # 支持 bot token 和 user_session token
     if token_type not in ("bot", "user", "user_session"):
         raise HTTPException(
@@ -93,7 +95,7 @@ async def get_current_user(
             detail="无效的 Token 类型",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(
@@ -101,7 +103,7 @@ async def get_current_user(
             detail="用户不存在",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # 如果是 Bot Token，验证是否匹配
     if token_type == "bot" and user.token != token:
         raise HTTPException(
@@ -109,58 +111,65 @@ async def get_current_user(
             detail="Token 已失效",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
+    if user.is_banned:
+        reason = user.ban_reason or "违反社区规定"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"账号已被封禁，原因：{reason}",
+        )
+
     return user
 
 
 async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
-    db: Session = Depends(get_db)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(
+        HTTPBearer(auto_error=False)
+    ),
+    db: Session = Depends(get_db),
 ) -> Optional[User]:
     """获取当前用户（可选，允许未登录访问）"""
     if credentials is None:
         return None
-    
+
     token = credentials.credentials
     user_id, token_type = verify_token(token)
-    
+
     if user_id is None:
         return None
-    
+
     # 支持 bot token 和 user_session token
     if token_type not in ("bot", "user", "user_session"):
         return None
-    
+
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         return None
-    
+
     # 如果是 Bot Token，验证是否匹配
     if token_type == "bot" and user.token != token:
         return None
-    
+
     return user
 
 
 async def verify_admin(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> Admin:
     """验证管理员"""
     token = credentials.credentials
     admin_id, token_type = verify_token(token)
-    
+
     if admin_id is None or token_type != "admin":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="需要管理员权限"
+            status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限"
         )
-    
+
     admin = db.query(Admin).filter(Admin.id == admin_id).first()
     if admin is None:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="管理员不存在"
+            status_code=status.HTTP_403_FORBIDDEN, detail="管理员不存在"
         )
-    
+
     return admin

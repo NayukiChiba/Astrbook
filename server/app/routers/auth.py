@@ -3,12 +3,20 @@ from sqlalchemy.orm import Session, joinedload
 from ..database import get_db
 from ..models import User, Thread, Reply, OAuthAccount
 from ..schemas import (
-    UserCreate, UserResponse, RegisterResponse, UserLogin, LoginResponse, 
-    UserWithTokenResponse, ProfileUpdate, ChangePassword, SetPassword, BotTokenResponse,
-    UserLevelResponse
+    UserCreate,
+    UserResponse,
+    RegisterResponse,
+    UserLogin,
+    LoginResponse,
+    UserWithTokenResponse,
+    ProfileUpdate,
+    ChangePassword,
+    SetPassword,
+    BotTokenResponse,
+    UserLevelResponse,
 )
 from ..auth import generate_token, get_current_user, hash_password, verify_password
-from ..level_service import get_user_level_info, get_or_create_user_level
+from ..level_service import get_user_level_info
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 
@@ -23,7 +31,7 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     """
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail="账号密码注册已关闭，请使用 GitHub 登录注册"
+        detail="账号密码注册已关闭，请使用 GitHub 登录注册",
     )
 
 
@@ -31,37 +39,41 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
 async def login(data: UserLogin, db: Session = Depends(get_db)):
     """
     Bot 主人登录
-    
+
     返回登录会话 Token 和 Bot Token
     """
     user = db.query(User).filter(User.username == data.username).first()
-    
+
     if not user or not user.password_hash:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误"
         )
-    
+
     if not verify_password(data.password, user.password_hash):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误"
         )
-    
+
+    if user.is_banned:
+        reason = user.ban_reason or "违反社区规定"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"账号已被封禁，原因：{reason}",
+        )
+
     # 生成登录会话 Token
     access_token = generate_token(user.id, "user_session")
-    
+
     return LoginResponse(
         user=UserResponse.model_validate(user),
         access_token=access_token,
-        bot_token=user.token
+        bot_token=user.token,
     )
 
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     获取当前用户信息
@@ -69,7 +81,7 @@ async def get_me(
     # 获取等级信息
     level_info = get_user_level_info(db, current_user.id)
     db.commit()  # 提交可能的等级初始化
-    
+
     response = UserResponse.model_validate(current_user)
     response.level = level_info["level"]
     response.exp = level_info["exp"]
@@ -81,9 +93,7 @@ async def get_security_status(current_user: User = Depends(get_current_user)):
     """
     获取当前用户的安全状态（是否设置了密码）
     """
-    return {
-        "has_password": current_user.password_hash is not None
-    }
+    return {"has_password": current_user.password_hash is not None}
 
 
 @router.get("/bot-token", response_model=BotTokenResponse)
@@ -95,18 +105,19 @@ async def get_bot_token(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/refresh-token", response_model=UserWithTokenResponse)
-async def refresh_token(current_user: User = Depends(get_current_user), 
-                        db: Session = Depends(get_db)):
+async def refresh_token(
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
     """
     刷新 Bot Token
-    
+
     旧 Token 将失效
     """
     new_token = generate_token(current_user.id, "bot")
     current_user.token = new_token
     db.commit()
     db.refresh(current_user)
-    
+
     return UserWithTokenResponse.model_validate(current_user)
 
 
@@ -114,7 +125,7 @@ async def refresh_token(current_user: User = Depends(get_current_user),
 async def update_profile(
     data: ProfileUpdate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     更新用户资料（昵称、头像、人设）
@@ -125,10 +136,10 @@ async def update_profile(
         current_user.avatar = data.avatar
     if data.persona is not None:
         current_user.persona = data.persona
-    
+
     db.commit()
     db.refresh(current_user)
-    
+
     return UserResponse.model_validate(current_user)
 
 
@@ -136,7 +147,7 @@ async def update_profile(
 async def change_password(
     data: ChangePassword,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     修改密码
@@ -144,18 +155,17 @@ async def change_password(
     if not current_user.password_hash:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="此账号没有设置密码，请使用设置密码功能"
+            detail="此账号没有设置密码，请使用设置密码功能",
         )
-    
+
     if not verify_password(data.old_password, current_user.password_hash):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="当前密码错误"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="当前密码错误"
         )
-    
+
     current_user.password_hash = hash_password(data.new_password)
     db.commit()
-    
+
     return {"message": "密码修改成功"}
 
 
@@ -163,7 +173,7 @@ async def change_password(
 async def set_password(
     data: SetPassword,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     设置密码（针对没有密码的用户，如 GitHub 注册用户）
@@ -171,12 +181,12 @@ async def set_password(
     if current_user.password_hash:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="您已经设置过密码，请使用修改密码功能"
+            detail="您已经设置过密码，请使用修改密码功能",
         )
-    
+
     current_user.password_hash = hash_password(data.new_password)
     db.commit()
-    
+
     return {"message": "密码设置成功，现在您可以使用用户名密码登录"}
 
 
@@ -185,17 +195,21 @@ async def get_my_threads(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=50),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     获取当前用户发布的帖子列表
     """
     from sqlalchemy import func
-    
+
     # 统计总数
-    total = db.query(func.count(Thread.id)).filter(Thread.author_id == current_user.id).scalar()
+    total = (
+        db.query(func.count(Thread.id))
+        .filter(Thread.author_id == current_user.id)
+        .scalar()
+    )
     total_pages = (total + page_size - 1) // page_size if total > 0 else 1
-    
+
     # 查询帖子
     threads = (
         db.query(Thread)
@@ -205,7 +219,7 @@ async def get_my_threads(
         .limit(page_size)
         .all()
     )
-    
+
     return {
         "items": [
             {
@@ -214,14 +228,16 @@ async def get_my_threads(
                 "category": t.category,
                 "reply_count": t.reply_count,
                 "created_at": t.created_at.isoformat() if t.created_at else None,
-                "last_reply_at": t.last_reply_at.isoformat() if t.last_reply_at else None
+                "last_reply_at": t.last_reply_at.isoformat()
+                if t.last_reply_at
+                else None,
             }
             for t in threads
         ],
         "total": total,
         "page": page,
         "page_size": page_size,
-        "total_pages": total_pages
+        "total_pages": total_pages,
     }
 
 
@@ -230,17 +246,21 @@ async def get_my_replies(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=50),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     获取当前用户发布的回复列表
     """
     from sqlalchemy import func
-    
+
     # 统计总数
-    total = db.query(func.count(Reply.id)).filter(Reply.author_id == current_user.id).scalar()
+    total = (
+        db.query(func.count(Reply.id))
+        .filter(Reply.author_id == current_user.id)
+        .scalar()
+    )
     total_pages = (total + page_size - 1) // page_size if total > 0 else 1
-    
+
     # 查询回复（包含所属帖子信息）
     replies = (
         db.query(Reply)
@@ -251,7 +271,7 @@ async def get_my_replies(
         .limit(page_size)
         .all()
     )
-    
+
     return {
         "items": [
             {
@@ -261,14 +281,14 @@ async def get_my_replies(
                 "floor_num": r.floor_num,
                 "content": r.content[:100] + ("..." if len(r.content) > 100 else ""),
                 "is_sub_reply": r.parent_id is not None,
-                "created_at": r.created_at.isoformat() if r.created_at else None
+                "created_at": r.created_at.isoformat() if r.created_at else None,
             }
             for r in replies
         ],
         "total": total,
         "page": page,
         "page_size": page_size,
-        "total_pages": total_pages
+        "total_pages": total_pages,
     }
 
 
@@ -276,11 +296,11 @@ async def get_my_replies(
 async def delete_account(
     password: str = Query(None, description="如果设置了密码，需要提供密码确认"),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     注销当前账号
-    
+
     - 用户数据将被删除
     - 发布的帖子和回复将保留，但作者改为"已注销用户"
     - 此操作不可撤销
@@ -290,14 +310,13 @@ async def delete_account(
         if not password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="请提供密码以确认注销操作"
+                detail="请提供密码以确认注销操作",
             )
         if not verify_password(password, current_user.password_hash):
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="密码错误"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="密码错误"
             )
-    
+
     # 确保占位符用户存在
     deleted_user = db.query(User).filter(User.id == DELETED_USER_ID).first()
     if not deleted_user:
@@ -308,39 +327,36 @@ async def delete_account(
             nickname="已注销用户",
             avatar="",
             password_hash=None,
-            token=generate_token(DELETED_USER_ID, "bot")
+            token=generate_token(DELETED_USER_ID, "bot"),
         )
         db.add(deleted_user)
         db.flush()
-    
+
     # 将用户的所有帖子转移到占位符用户
     db.query(Thread).filter(Thread.author_id == current_user.id).update(
-        {"author_id": DELETED_USER_ID},
-        synchronize_session=False
+        {"author_id": DELETED_USER_ID}, synchronize_session=False
     )
-    
+
     # 将用户的所有回复转移到占位符用户
     db.query(Reply).filter(Reply.author_id == current_user.id).update(
-        {"author_id": DELETED_USER_ID},
-        synchronize_session=False
+        {"author_id": DELETED_USER_ID}, synchronize_session=False
     )
-    
+
     # 删除 OAuth 关联
     db.query(OAuthAccount).filter(OAuthAccount.user_id == current_user.id).delete(
         synchronize_session=False
     )
-    
+
     # 删除用户
     db.delete(current_user)
     db.commit()
-    
+
     return {"message": "账号已成功注销"}
 
 
 @router.get("/me/level", response_model=UserLevelResponse)
 async def get_my_level(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     获取当前用户的等级详情

@@ -40,3 +40,4 @@ dist/
 
 # 日志
 *.log
+.ace-tool/

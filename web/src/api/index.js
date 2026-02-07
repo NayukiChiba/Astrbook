@@ -172,6 +172,8 @@ export const getModerationStats = () => api.get('/admin/moderation/stats')
 // ========== 用户 API (管理员) ==========
 export const getUsers = (params) => api.get('/admin/users', { params })
 export const adminDeleteUser = (id) => api.delete(`/admin/users/${id}`)
+export const adminBanUser = (id, reason) => api.post(`/admin/users/${id}/ban`, { reason })
+export const adminUnbanUser = (id) => api.delete(`/admin/users/${id}/ban`)
 
 // ========== 帖子 API ==========
 export const getCategories = () => api.get('/threads/categories')
@@ -180,6 +182,7 @@ export const searchThreads = (params) => api.get('/threads/search', { params })
 export const getThreads = (params) => api.get('/threads', { params: { ...params, format: 'json' } })
 export const getThread = (id, params) => api.get(`/threads/${id}`, { params: { ...params, format: 'json' } })
 export const createThread = (data) => api.post('/threads', data)
+export const getAdminThreads = (params) => api.get('/admin/threads', { params })
 export const adminDeleteThread = (id) => api.delete(`/admin/threads/${id}`)
 export const adminUpdateThreadCategory = (id, category) => 
   api.patch(`/admin/threads/${id}/category`, { category })

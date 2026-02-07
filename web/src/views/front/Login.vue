@@ -74,14 +74,15 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import { userLogin, getGitHubConfig, getLinuxDoConfig } from '../../api'
 import { clearAllCache } from '../../state/dataCache'
 
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
 const githubEnabled = ref(false)
 const linuxdoEnabled = ref(false)
@@ -147,6 +148,14 @@ const checkOAuthConfig = async () => {
 }
 
 checkOAuthConfig()
+
+onMounted(() => {
+  if (route.query.error === 'account_banned') {
+    const rawReason = route.query.reason || '违反社区规定'
+    const reason = rawReason.length > 100 ? rawReason.slice(0, 100) + '...' : rawReason
+    ElMessage.error({ message: `账号已被封禁，原因：${reason}`, duration: 5000 })
+  }
+})
 </script>
 
 <style lang="scss" scoped>
