@@ -918,7 +918,7 @@ loadBlockList()
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border-light);
   padding-bottom: 16px;
   
   .section-title {
@@ -930,12 +930,12 @@ loadBlockList()
   
   .status-badge {
     background: rgba(30, 238, 62, 0.1);
-    color: #1eee3e;
+    color: var(--primary-color);
     padding: 4px 12px;
     border-radius: 4px;
     font-size: 12px;
     font-weight: 700;
-    border: 1px solid rgba(30, 238, 62, 0.3);
+    border: 1px solid var(--primary-color);
   }
 }
 
@@ -952,7 +952,7 @@ loadBlockList()
   .level-tips {
     margin-top: 16px;
     padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid var(--border-light);
     
     p {
       font-size: 13px;
@@ -975,8 +975,8 @@ loadBlockList()
   font-family: monospace;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
 }
 
 .avatar-wrapper {
@@ -993,7 +993,7 @@ loadBlockList()
   .avatar-preview {
     width: 100%;
     height: 100%;
-    background: #000;
+    background: var(--bg-tertiary);
     display: block; /* 消除图片底部的空隙 */
   }
   
@@ -1033,16 +1033,16 @@ loadBlockList()
 
 /* 输入框容器 */
 .input-box {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--bg-tertiary);
   border-radius: 8px;
   padding: 4px;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-light);
   transition: all 0.3s;
   width: 100%; /* 强制占满父容器 */
   
   &:focus-within {
-    border-color: var(--acid-purple);
-    box-shadow: 0 0 15px rgba(176, 38, 255, 0.1);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 15px rgba(var(--primary-color), 0.1);
   }
   
   &.textarea-box {
@@ -1051,7 +1051,7 @@ loadBlockList()
     :deep(.el-textarea__inner) {
       background: transparent !important;
       box-shadow: none !important;
-      color: #fff;
+      color: var(--text-primary);
       font-family: monospace;
       padding: 16px; /* 增加内边距 */
       min-height: 160px !important; /* 再次增加高度 */
@@ -1091,12 +1091,12 @@ loadBlockList()
   
   .token-box {
     flex: 1;
-    background: #000;
+    background: var(--bg-tertiary);
     padding: 12px 16px;
     border-radius: 8px;
-    border: 1px solid var(--glass-border);
+    border: 1px solid var(--border-color);
     font-family: monospace;
-    color: var(--acid-blue);
+    color: var(--primary-color);
     display: flex;
     align-items: center;
     min-height: 42px; /* 保证最小高度 */
@@ -1139,8 +1139,8 @@ loadBlockList()
 
 /* 酸性按钮 */
 .acid-btn {
-  background: var(--acid-green);
-  color: #000;
+  background: var(--primary-color);
+  color: #fff;
   border: none;
   padding: 10px 24px;
   font-size: 14px;
@@ -1157,16 +1157,16 @@ loadBlockList()
   
   &:hover {
     transform: translate(-2px, -2px);
-    box-shadow: 4px 4px 0 var(--acid-purple);
+    box-shadow: 4px 4px 0 var(--primary-hover);
   }
   
   &.outline {
     background: transparent;
-    border: 1px solid var(--acid-green);
-    color: var(--acid-green);
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
     
     &:hover {
-      background: rgba(204, 255, 0, 0.1);
+      background: rgba(60, 150, 202, 0.1);
     }
   }
   
@@ -1209,7 +1209,7 @@ loadBlockList()
   }
   
   .el-input__inner {
-    color: #fff;
+    color: var(--text-primary);
     font-family: monospace;
     &::placeholder {
       color: var(--text-disabled);
@@ -1217,8 +1217,8 @@ loadBlockList()
   }
 
   .el-input__count {
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
     border-radius: 10px;
     padding: 0 8px;
     height: 20px;
@@ -1242,12 +1242,12 @@ loadBlockList()
     gap: 12px;
     margin-bottom: 16px;
     padding-bottom: 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border-light);
   }
   
   .count-badge {
-    background: rgba(30, 238, 62, 0.15);
-    color: var(--acid-green);
+    background: rgba(60, 150, 202, 0.1);
+    color: var(--primary-color);
     padding: 2px 10px;
     border-radius: 12px;
     font-size: 12px;
@@ -1273,12 +1273,12 @@ loadBlockList()
   
   .content-item {
     padding: 12px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border-light);
     cursor: pointer;
     transition: all 0.2s;
     
     &:hover {
-      background: rgba(255, 255, 255, 0.02);
+      background: var(--bg-tertiary);
       margin: 0 -16px;
       padding: 12px 16px;
     }
@@ -1299,7 +1299,7 @@ loadBlockList()
     font-size: 11px;
     padding: 2px 6px;
     border-radius: 4px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--bg-tertiary);
     color: var(--text-secondary);
     
     &.tech { background: rgba(30, 238, 62, 0.15); color: var(--acid-green); }
@@ -1312,11 +1312,11 @@ loadBlockList()
     font-size: 11px;
     padding: 2px 6px;
     border-radius: 4px;
-    background: rgba(30, 238, 62, 0.15);
-    color: var(--acid-green);
+    background: rgba(60, 150, 202, 0.1);
+    color: var(--primary-color);
     
     &.sub {
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--bg-tertiary);
       color: var(--text-secondary);
     }
   }
@@ -1353,11 +1353,11 @@ loadBlockList()
     gap: 12px;
     margin-top: 16px;
     padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid var(--border-light);
     
     .page-btn {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
       color: var(--text-secondary);
       padding: 4px 12px;
       border-radius: 4px;
@@ -1434,7 +1434,7 @@ loadBlockList()
   }
   
   .oauth-name {
-    color: #fff;
+    color: var(--text-primary);
     font-weight: 500;
     font-size: 14px;
   }
@@ -1464,7 +1464,7 @@ loadBlockList()
     align-items: center;
     justify-content: space-between;
     padding: 12px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border-light);
     
     &:last-child {
       border-bottom: none;
@@ -1505,7 +1505,7 @@ loadBlockList()
     align-items: flex-start;
     gap: 8px;
     padding: 12px;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-tertiary);
     border-radius: 6px;
     margin-top: 16px;
     
