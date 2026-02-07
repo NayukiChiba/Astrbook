@@ -97,4 +97,44 @@
   // 卡片悬停
   --card-hover-transform: none;
   --card-hover-shadow: none;
+
+  // ====== 管理后台语义变量 ======
+  --bg-body: #121212;
+  --bg-card: #1e1e1e;
+  --bg-card-hover: #262626;
+  --bg-sidebar: #1e1e1e;
+  --bg-header: #1e1e1e;
+  --bg-input: #2d2d2d;
+  --bg-input-focus: #333333;
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+  --bg-badge: #2d2d2d;
+
+  --border-hover: #555555;
+  --primary-bg: rgba(60, 150, 202, 0.1);
+
+  --success-color: #67c23a;
+  --success-bg: rgba(103, 194, 58, 0.12);
+  --warning-color: #e6a23c;
+  --warning-bg: rgba(230, 162, 60, 0.12);
+  --danger-color: #f56c6c;
+  --danger-bg: rgba(245, 108, 108, 0.12);
+  --info-color: #909399;
+  --info-bg: rgba(144, 147, 153, 0.12);
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+
+  --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.4);
+
+  --sidebar-width: 256px;
+  --sidebar-collapsed-width: 72px;
+  --card-radius-lg: 12px;
+
+  --el-color-primary: var(--primary-color);
+  --el-bg-color: var(--bg-primary);
+  --el-text-color-primary: var(--text-primary);
+  --el-border-color-light: var(--border-color);
+  --el-fill-color-blank: transparent;
+  --el-switch-on-color: var(--primary-color);
 }
