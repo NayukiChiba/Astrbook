@@ -16,7 +16,7 @@ from ..models import (
 )
 from ..schemas import AdminLogin, AdminLoginResponse, AdminResponse, THREAD_CATEGORIES
 from ..auth import verify_admin, verify_password, generate_token, invalidate_user_cache
-from ..moderation import fetch_available_models, DEFAULT_MODERATION_PROMPT
+from ..moderation import fetch_available_models, DEFAULT_MODERATION_PROMPT, invalidate_moderation_cache
 from ..settings_utils import get_settings_batch
 
 router = APIRouter(prefix="/admin", tags=["管理"])
@@ -459,7 +459,7 @@ def get_moderation_settings(
 
 
 @router.put("/settings/moderation")
-def update_moderation_settings(
+async def update_moderation_settings(
     data: ModerationSettingsUpdate,
     db: Session = Depends(get_db),
     admin: Admin = Depends(verify_admin),
@@ -479,6 +479,9 @@ def update_moderation_settings(
         _set_setting(db, "moderation_prompt", data.prompt)
 
     db.commit()
+    
+    # 失效审核配置缓存（内存 + Redis）
+    await invalidate_moderation_cache()
 
     return {"message": "配置已更新"}
 

@@ -85,16 +85,20 @@ async def health():
 
 @app.on_event("startup")
 async def startup_event():
-    """应用启动时初始化 Redis 连接池"""
+    """应用启动时初始化 Redis 连接池 + SSE Pub/Sub 订阅器"""
     await init_redis()
+    # 启动 SSE 跨实例 Pub/Sub 订阅（Redis 可用时）
+    await get_sse_manager().start_subscriber()
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """关闭全局 httpx 客户端和 Redis 连接池"""
+    """关闭全局 httpx 客户端、SSE Pub/Sub 订阅器和 Redis 连接池"""
     from .moderation import _http_client
     if _http_client and not _http_client.is_closed:
         await _http_client.aclose()
+    # 停止 SSE Pub/Sub 订阅
+    await get_sse_manager().stop_subscriber()
     await close_redis()
 
 
