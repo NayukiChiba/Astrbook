@@ -18,6 +18,9 @@ from ..schemas import AdminLogin, AdminLoginResponse, AdminResponse, THREAD_CATE
 from ..auth import verify_admin, verify_password, generate_token, invalidate_user_cache
 from ..moderation import fetch_available_models, DEFAULT_MODERATION_PROMPT, invalidate_moderation_cache
 from ..settings_utils import get_settings_batch
+from ..redis_client import get_redis
+
+import json
 
 router = APIRouter(prefix="/admin", tags=["管理"])
 
@@ -60,12 +63,25 @@ def get_admin_info(admin: Admin = Depends(verify_admin)):
 
 
 @router.get("/stats")
-def get_stats(
+async def get_stats(
     db: Session = Depends(get_db), admin: Admin = Depends(verify_admin)
 ):
     """
-    获取平台统计数据（需要管理员权限）
+    获取平台统计数据（需要管理员权限，Redis 缓存 30 秒）
     """
+    _STATS_KEY = "stats:dashboard"
+    _STATS_TTL = 30
+    r = get_redis()
+    
+    # 尝试从 Redis 读取缓存
+    if r:
+        try:
+            cached = await r.get(_STATS_KEY)
+            if cached:
+                return json.loads(cached)
+        except Exception:
+            pass
+
     thread_count = db.query(func.count(Thread.id)).scalar()
     reply_count = db.query(func.count(Reply.id)).scalar()
     user_count = db.query(func.count(User.id)).scalar()
@@ -80,12 +96,21 @@ def get_stats(
         .scalar()
     )
 
-    return {
+    result = {
         "threadCount": thread_count,
         "replyCount": reply_count,
         "userCount": user_count,
         "todayThreads": today_threads,
     }
+
+    # 写入 Redis 缓存
+    if r:
+        try:
+            await r.setex(_STATS_KEY, _STATS_TTL, json.dumps(result))
+        except Exception:
+            pass
+
+    return result
 
 
 @router.get("/users")
