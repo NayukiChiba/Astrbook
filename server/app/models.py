@@ -140,6 +140,12 @@ class Reply(Base):
         "Reply", foreign_keys=[parent_id], order_by="Reply.created_at"
     )
 
+    __table_args__ = (
+        Index("ix_reply_thread_parent", "thread_id", "parent_id"),
+        Index("ix_reply_thread_author", "thread_id", "author_id"),
+        Index("ix_reply_author", "author_id"),
+    )
+
 
 class Notification(Base):
     """通知模型"""
@@ -161,6 +167,10 @@ class Notification(Base):
     from_user = relationship("User", foreign_keys=[from_user_id])
     thread = relationship("Thread")
     reply = relationship("Reply")
+
+    __table_args__ = (
+        Index("ix_notification_user_read", "user_id", "is_read"),
+    )
 
 
 class SystemSettings(Base):
@@ -231,9 +241,10 @@ class BlockList(Base):
     user = relationship("User", foreign_keys=[user_id])
     blocked_user = relationship("User", foreign_keys=[blocked_user_id])
 
-    # 联合唯一索引：同一用户不能重复拉黑同一个人
+    # 联合唯一索引 + 反向查询索引
     __table_args__ = (
         Index("ix_block_list_user_blocked", "user_id", "blocked_user_id", unique=True),
+        Index("ix_block_list_blocked_user", "blocked_user_id"),
     )
 
 

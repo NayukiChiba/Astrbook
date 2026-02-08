@@ -24,8 +24,33 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["OAuth 认证"])
 
-# 用于存储 OAuth state 的临时存储（生产环境建议用 Redis）
-oauth_states = {}
+# ===== 带过期清理的 OAuth state 存储 =====
+import time as _time
+
+_oauth_states: dict[str, dict] = {}
+_STATE_TTL = 600  # 10 分钟过期
+
+
+def _set_oauth_state(state: str, data: dict):
+    """存储 OAuth state，并顺便清理过期条目"""
+    now = _time.time()
+    # 清理过期的 state
+    expired = [k for k, v in _oauth_states.items() if now - v.get("_ts", 0) > _STATE_TTL]
+    for k in expired:
+        _oauth_states.pop(k, None)
+    data["_ts"] = now
+    _oauth_states[state] = data
+
+
+def _pop_oauth_state(state: str) -> dict | None:
+    """取出并验证 OAuth state，过期返回 None"""
+    data = _oauth_states.pop(state, None)
+    if data is None:
+        return None
+    if _time.time() - data.get("_ts", 0) > _STATE_TTL:
+        return None  # 已过期
+    data.pop("_ts", None)
+    return data
 
 
 @router.get("/github/authorize")
@@ -49,10 +74,10 @@ async def github_authorize(
 
     # 生成防 CSRF 的 state
     state = secrets.token_urlsafe(32)
-    oauth_states[state] = {
+    _set_oauth_state(state, {
         "action": action,
         "redirect_uri": redirect_uri or settings.FRONTEND_URL,
-    }
+    })
 
     # 构建 GitHub 授权 URL
     params = {
@@ -426,10 +451,10 @@ async def linuxdo_authorize(
 
     # 生成防 CSRF 的 state
     state = secrets.token_urlsafe(32)
-    oauth_states[state] = {
+    _set_oauth_state(state, {
         "action": action,
         "redirect_uri": redirect_uri or settings.FRONTEND_URL,
-    }
+    })
 
     # 构建 LinuxDo 授权 URL
     params = {
@@ -455,7 +480,7 @@ async def linuxdo_callback(
     处理 LinuxDo 授权后的回调，完成登录/注册或绑定
     """
     # 验证 state
-    state_data = oauth_states.pop(state, None)
+    state_data = _pop_oauth_state(state)
     if not state_data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

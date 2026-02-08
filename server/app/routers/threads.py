@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import func, and_, or_, literal_column, literal, case, union_all
 from typing import Literal, Optional
 from datetime import datetime, timedelta
 from ..database import get_db
-from ..models import User, Thread, Reply, Notification, BlockList, Like
+from ..models import User, Thread, Reply, Notification, BlockList, Like, UserLevel
 from ..schemas import (
     ThreadCreate, ThreadListItem, ThreadDetail,
     ReplyResponse, SubReplyResponse, PaginatedResponse, ThreadWithReplies,
@@ -304,21 +304,35 @@ async def list_threads(
         .all()
     )
     
-    # 获取当前用户在这些帖子中回复过的帖子ID列表（包括直接回复和楼中楼）
+    # 获取当前用户在这些帖子中的辅助状态（合并为1次 UNION ALL 查询）
     thread_ids = [t.id for t in threads]
     replied_thread_ids = set()
     liked_thread_ids = set()
     if current_user and thread_ids:
-        replied_threads = (
-            db.query(Reply.thread_id)
-            .filter(Reply.thread_id.in_(thread_ids))
-            .filter(Reply.author_id == current_user.id)
-            .distinct()
-            .all()
-        )
-        replied_thread_ids = {r[0] for r in replied_threads}
-        # 获取点赞状态
-        liked_thread_ids = get_user_liked_thread_ids(db, current_user.id, thread_ids)
+        # 合并"回复过" + "点赞过" 为一次查询
+        parts = [
+            db.query(
+                Reply.thread_id.label("item_id"),
+                literal("replied").label("item_type")
+            ).filter(
+                Reply.thread_id.in_(thread_ids),
+                Reply.author_id == current_user.id
+            ).distinct(),
+            db.query(
+                Like.target_id.label("item_id"),
+                literal("liked").label("item_type")
+            ).filter(
+                Like.user_id == current_user.id,
+                Like.target_type == "thread",
+                Like.target_id.in_(thread_ids)
+            )
+        ]
+        combined = parts[0].union_all(parts[1])
+        for item_id, item_type in combined.all():
+            if item_type == "replied":
+                replied_thread_ids.add(item_id)
+            elif item_type == "liked":
+                liked_thread_ids.add(item_id)
     
     # 批量获取用户等级信息
     author_ids = list({t.author_id for t in threads})
@@ -411,7 +425,7 @@ async def get_thread(
     current_user: Optional[User] = Depends(get_optional_user)
 ):
     """
-    获取帖子详情（含分页楼层）- 公开接口
+    获取帖子详情（含分页楼层）- 公开接口（优化版：合并查询）
     
     - **thread_id**: 帖子ID
     - **page**: 楼层页码
@@ -421,7 +435,24 @@ async def get_thread(
     
     注意：如果用户已登录，被该用户拉黑的用户的回复将被过滤
     """
-    # 查询帖子
+    # ===== 第1步：原子更新浏览量 + 查帖子（合并为1次写 + 1次读） =====
+    # 原子 UPDATE 避免竞态条件和行锁
+    rows_updated = (
+        db.query(Thread)
+        .filter(Thread.id == thread_id)
+        .update(
+            {Thread.view_count: func.coalesce(Thread.view_count, 0) + 1},
+            synchronize_session="fetch"
+        )
+    )
+    if rows_updated == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="帖子不存在"
+        )
+    db.flush()
+    
+    # 查询帖子本体（这里已经是更新后的 view_count）
     thread = (
         db.query(Thread)
         .options(joinedload(Thread.author))
@@ -429,33 +460,31 @@ async def get_thread(
         .first()
     )
     
-    if not thread:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="帖子不存在"
-        )
-    
-    # 浏览量+1
-    thread.view_count = (thread.view_count or 0) + 1
-    db.commit()
-    db.refresh(thread)
-    
-    # 获取当前用户的拉黑列表
+    # ===== 第2步：获取拉黑列表（合并为1次查询） =====
     blocked_user_ids = set()
-    if current_user:
-        blocked_user_ids = get_blocked_user_ids(db, current_user.id)
+    current_user_id = current_user.id if current_user else None
+    if current_user_id:
+        # 合并"我拉黑的"和"拉黑我的"为一次 UNION ALL 查询
+        blocked_rows = (
+            db.query(BlockList.blocked_user_id.label("uid"))
+            .filter(BlockList.user_id == current_user_id)
+            .union_all(
+                db.query(BlockList.user_id.label("uid"))
+                .filter(BlockList.blocked_user_id == current_user_id)
+            )
+            .all()
+        )
+        blocked_user_ids = {row[0] for row in blocked_rows}
     
-    # 统计主楼层总数（排除被拉黑用户的回复）
-    count_query = db.query(func.count(Reply.id)).filter(
-        Reply.thread_id == thread_id, 
-        Reply.parent_id.is_(None)
-    )
+    # ===== 第3步：查回复列表 + 计数（合并为1次主查询 + 1次count） =====
+    # 构建 count 查询
+    count_filter = [Reply.thread_id == thread_id, Reply.parent_id.is_(None)]
     if blocked_user_ids:
-        count_query = count_query.filter(~Reply.author_id.in_(blocked_user_ids))
-    total = count_query.scalar()
+        count_filter.append(~Reply.author_id.in_(blocked_user_ids))
+    total = db.query(func.count(Reply.id)).filter(*count_filter).scalar()
     total_pages = (total + page_size - 1) // page_size if total > 0 else 1
     
-    # 查询主楼层（分页，排除被拉黑用户）
+    # 查询主楼层（带 eagarload 楼中楼和作者）
     replies_query = (
         db.query(Reply)
         .options(
@@ -468,7 +497,6 @@ async def get_thread(
     if blocked_user_ids:
         replies_query = replies_query.filter(~Reply.author_id.in_(blocked_user_ids))
     
-    # 根据 sort 参数决定排序方向
     order = Reply.floor_num.asc() if sort == "asc" else Reply.floor_num.desc()
     replies = (
         replies_query
@@ -478,43 +506,101 @@ async def get_thread(
         .all()
     )
     
-    # 获取点赞状态
+    # ===== 第4步：一次性批量获取所有辅助数据 =====
+    # 先收集所有需要的 ID
+    all_reply_ids = []
+    all_author_ids = {thread.author_id}
+    for r in replies:
+        all_reply_ids.append(r.id)
+        all_author_ids.add(r.author_id)
+        if r.sub_replies:
+            for sub in r.sub_replies:
+                all_reply_ids.append(sub.id)
+                all_author_ids.add(sub.author_id)
+    all_author_ids = list(all_author_ids)
+    
+    # 如果用户已登录，用一次查询获取：点赞的回复IDs + 是否点赞帖子 + 是否回复过
     liked_reply_ids = set()
     thread_liked = False
-    if current_user:
-        # 收集所有回复ID（包括楼中楼）
-        all_reply_ids = []
-        for r in replies:
-            all_reply_ids.append(r.id)
-            if r.sub_replies:
-                all_reply_ids.extend([sub.id for sub in r.sub_replies])
-        liked_reply_ids = get_user_liked_reply_ids(db, current_user.id, all_reply_ids)
-        thread_liked = is_thread_liked_by_user(db, current_user.id, thread_id)
+    has_replied = False
     
-    # 批量获取用户等级信息
-    all_author_ids = [thread.author_id]
-    for r in replies:
-        all_author_ids.append(r.author_id)
-        if r.sub_replies:
-            all_author_ids.extend([sub.author_id for sub in r.sub_replies])
-    user_levels = batch_get_user_levels(db, list(set(all_author_ids)))
+    if current_user_id:
+        # 子查询1: 用户点赞的回复IDs
+        # 子查询2: 用户是否点赞了该帖子
+        # 子查询3: 用户是否回复过该帖子
+        # 全部合并为一次查询，用 type 字段区分
+        
+        parts = []
+        
+        # part A: 点赞的回复
+        if all_reply_ids:
+            parts.append(
+                db.query(
+                    Like.target_id.label("item_id"),
+                    literal("liked_reply").label("item_type")
+                ).filter(
+                    Like.user_id == current_user_id,
+                    Like.target_type == "reply",
+                    Like.target_id.in_(all_reply_ids)
+                )
+            )
+        
+        # part B: 是否点赞帖子（用 thread_id 作为 item_id）
+        parts.append(
+            db.query(
+                Like.target_id.label("item_id"),
+                literal("liked_thread").label("item_type")
+            ).filter(
+                Like.user_id == current_user_id,
+                Like.target_type == "thread",
+                Like.target_id == thread_id
+            )
+        )
+        
+        # part C: 是否回复过（只取1条，用 thread_id 作为 item_id）
+        parts.append(
+            db.query(
+                Reply.thread_id.label("item_id"),
+                literal("has_replied").label("item_type")
+            ).filter(
+                Reply.thread_id == thread_id,
+                Reply.author_id == current_user_id
+            ).limit(1)
+        )
+        
+        # 合并所有子查询
+        combined_query = parts[0]
+        for p in parts[1:]:
+            combined_query = combined_query.union_all(p)
+        
+        for item_id, item_type in combined_query.all():
+            if item_type == "liked_reply":
+                liked_reply_ids.add(item_id)
+            elif item_type == "liked_thread":
+                thread_liked = True
+            elif item_type == "has_replied":
+                has_replied = True
     
+    # 批量获取用户等级信息（1次查询）
+    user_levels = {}
+    if all_author_ids:
+        user_level_rows = db.query(UserLevel).filter(UserLevel.user_id.in_(all_author_ids)).all()
+        user_levels = {ul.user_id: {"level": ul.level, "exp": ul.exp} for ul in user_level_rows}
+        for uid in all_author_ids:
+            if uid not in user_levels:
+                user_levels[uid] = {"level": 1, "exp": 0}
+    
+    # 提交浏览量更新
+    db.commit()
+    
+    # ===== 第5步：构建响应（纯内存操作，无DB） =====
     reply_items = [
-        get_reply_response(r, settings.SUB_REPLY_PREVIEW_COUNT, current_user.id if current_user else None, blocked_user_ids, liked_reply_ids, user_levels) 
+        get_reply_response(r, settings.SUB_REPLY_PREVIEW_COUNT, current_user_id, blocked_user_ids, liked_reply_ids, user_levels) 
         for r in replies
     ]
     
-    # 判断用户是否回复过这个帖子
-    has_replied = False
-    if current_user:
-        has_replied = (
-            db.query(Reply)
-            .filter(Reply.thread_id == thread_id, Reply.author_id == current_user.id)
-            .count() > 0
-        )
-    
     thread_detail = ThreadDetail.model_validate(thread)
-    thread_detail.is_mine = current_user is not None and thread.author_id == current_user.id
+    thread_detail.is_mine = current_user_id is not None and thread.author_id == current_user_id
     thread_detail.has_replied = has_replied
     thread_detail.like_count = thread.like_count or 0
     thread_detail.liked_by_me = thread_liked

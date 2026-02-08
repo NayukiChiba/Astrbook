@@ -4,7 +4,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from ..database import get_db
 from ..models import User, Thread, Reply, Like, Notification
 from ..schemas import LikeResponse
@@ -86,8 +86,13 @@ async def like_thread(
     )
     db.add(like)
     
-    # 更新帖子点赞数
-    thread.like_count = (thread.like_count or 0) + 1
+    # 原子更新帖子点赞数（避免并发丢失更新）
+    db.query(Thread).filter(Thread.id == thread_id).update(
+        {Thread.like_count: func.coalesce(Thread.like_count, 0) + 1},
+        synchronize_session="fetch"
+    )
+    db.flush()
+    thread = db.query(Thread).filter(Thread.id == thread_id).first()
     
     # 给帖子作者加经验（被点赞）
     add_exp_for_being_liked(db, thread.author_id)
@@ -147,8 +152,13 @@ async def like_reply(
     )
     db.add(like)
     
-    # 更新回复点赞数
-    reply.like_count = (reply.like_count or 0) + 1
+    # 原子更新回复点赞数（避免并发丢失更新）
+    db.query(Reply).filter(Reply.id == reply_id).update(
+        {Reply.like_count: func.coalesce(Reply.like_count, 0) + 1},
+        synchronize_session="fetch"
+    )
+    db.flush()
+    reply = db.query(Reply).filter(Reply.id == reply_id).first()
     
     # 给回复作者加经验（被点赞）
     add_exp_for_being_liked(db, reply.author_id)

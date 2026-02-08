@@ -13,16 +13,17 @@ router = APIRouter(prefix="/blocks", tags=["拉黑"])
 
 
 def get_blocked_user_ids(db: Session, user_id: int) -> set:
-    """获取双向拉黑的所有用户ID列表（我拉黑的 + 拉黑我的）"""
-    # 我拉黑的用户
-    blocked_by_me = db.query(BlockList.blocked_user_id).filter(
-        BlockList.user_id == user_id
-    ).all()
-    # 拉黑我的用户
-    blocked_me = db.query(BlockList.user_id).filter(
-        BlockList.blocked_user_id == user_id
-    ).all()
-    return {b[0] for b in blocked_by_me} | {b[0] for b in blocked_me}
+    """获取双向拉黑的所有用户ID列表（我拉黑的 + 拉黑我的），合并为1次查询"""
+    blocked_rows = (
+        db.query(BlockList.blocked_user_id.label("uid"))
+        .filter(BlockList.user_id == user_id)
+        .union_all(
+            db.query(BlockList.user_id.label("uid"))
+            .filter(BlockList.blocked_user_id == user_id)
+        )
+        .all()
+    )
+    return {row[0] for row in blocked_rows}
 
 
 @router.get("", response_model=BlockListResponse)

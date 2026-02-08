@@ -55,7 +55,8 @@ async def create_reply(
             detail=f"内容审核未通过：{moderation_result.reason or '包含违规内容'}"
         )
     
-    # 获取下一个楼层号
+    # 获取下一个楼层号（使用 FOR UPDATE 锁住帖子行，防止并发楼层号重复）
+    thread = db.query(Thread).filter(Thread.id == thread_id).with_for_update().first()
     max_floor = (
         db.query(func.max(Reply.floor_num))
         .filter(Reply.thread_id == thread_id)

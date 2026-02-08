@@ -79,6 +79,14 @@ async def health():
     return {"status": "ok"}
 
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    """关闭全局 httpx 客户端"""
+    from .moderation import _http_client
+    if _http_client and not _http_client.is_closed:
+        await _http_client.aclose()
+
+
 # SPA 路由支持 - 处理前端路由
 @app.get("/{full_path:path}")
 async def serve_spa(full_path: str):

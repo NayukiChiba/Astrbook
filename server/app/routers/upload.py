@@ -87,4 +87,9 @@ async def get_avatar(filename: str):
             detail="头像不存在"
         )
     
-    return FileResponse(filepath)
+    return FileResponse(
+        filepath,
+        headers={
+            "Cache-Control": "public, max-age=86400",  # 缓存1天
+        }
+    )

@@ -4,12 +4,24 @@
 import httpx
 import json
 import logging
+import time as _time
 from typing import Optional
 from dataclasses import dataclass
 from sqlalchemy.orm import Session
 from .models import SystemSettings, ModerationLog
 
 logger = logging.getLogger(__name__)
+
+# 全局 httpx 客户端 - 复用 TCP 连接
+_http_client: Optional[httpx.AsyncClient] = None
+
+
+def _get_http_client() -> httpx.AsyncClient:
+    """获取全局 httpx 客户端（连接复用）"""
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(timeout=30.0)
+    return _http_client
 
 # 默认审核 Prompt
 DEFAULT_MODERATION_PROMPT = """你是内容安全审核员。请判断以下内容是否存在严重违规。
@@ -52,17 +64,21 @@ class ContentModerator:
         self._load_settings()
     
     def _load_settings(self):
-        """从数据库加载配置"""
-        self.enabled = self._get_setting("moderation_enabled", "false") == "true"
-        self.api_base = self._get_setting("moderation_api_base", "https://api.openai.com/v1")
-        self.api_key = self._get_setting("moderation_api_key", "")
-        self.model = self._get_setting("moderation_model", "gpt-4o-mini")
-        self.prompt = self._get_setting("moderation_prompt", DEFAULT_MODERATION_PROMPT)
-    
-    def _get_setting(self, key: str, default: str = "") -> str:
-        """获取设置值"""
-        setting = self.db.query(SystemSettings).filter(SystemSettings.key == key).first()
-        return setting.value if setting and setting.value else default
+        """从数据库批量加载配置（1次查询代替5次）"""
+        keys = [
+            "moderation_enabled", "moderation_api_base",
+            "moderation_api_key", "moderation_model", "moderation_prompt"
+        ]
+        settings = self.db.query(SystemSettings).filter(
+            SystemSettings.key.in_(keys)
+        ).all()
+        settings_map = {s.key: s.value for s in settings if s.value}
+        
+        self.enabled = settings_map.get("moderation_enabled", "false") == "true"
+        self.api_base = settings_map.get("moderation_api_base", "https://api.openai.com/v1")
+        self.api_key = settings_map.get("moderation_api_key", "")
+        self.model = settings_map.get("moderation_model", "gpt-4o-mini")
+        self.prompt = settings_map.get("moderation_prompt", DEFAULT_MODERATION_PROMPT)
     
     async def check(
         self,
@@ -115,7 +131,7 @@ class ContentModerator:
             return ModerationResult(passed=True, error=str(e))
     
     async def _call_llm(self, content: str) -> ModerationResult:
-        """调用 LLM 进行审核"""
+        """调用 LLM 进行审核（使用全局客户端复用连接）"""
         # 构建完整的 prompt
         full_prompt = self.prompt.replace("{content}", content)
         
@@ -133,10 +149,10 @@ class ContentModerator:
             "max_tokens": 200
         }
         
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(url, headers=headers, json=payload)
-            response.raise_for_status()
-            data = response.json()
+        client = _get_http_client()
+        response = await client.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        data = response.json()
         
         # 解析响应
         reply = data["choices"][0]["message"]["content"].strip()
@@ -188,17 +204,17 @@ class ContentModerator:
 
 
 async def fetch_available_models(api_base: str, api_key: str) -> list[str]:
-    """从 API 获取可用模型列表"""
+    """从 API 获取可用模型列表（使用全局客户端）"""
     url = f"{api_base.rstrip('/')}/models"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
     
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        response = await client.get(url, headers=headers)
-        response.raise_for_status()
-        data = response.json()
+    client = _get_http_client()
+    response = await client.get(url, headers=headers)
+    response.raise_for_status()
+    data = response.json()
     
     # 提取模型 ID 列表
     models = []
@@ -212,6 +228,20 @@ async def fetch_available_models(api_base: str, api_key: str) -> list[str]:
     return models
 
 
+# ===== 审核器缓存（60秒TTL） =====
+_moderator_cache: Optional[ContentModerator] = None
+_moderator_cache_time: float = 0
+_MODERATOR_CACHE_TTL = 60  # 秒
+
+
 def get_moderator(db: Session) -> ContentModerator:
-    """获取审核器实例"""
-    return ContentModerator(db)
+    """获取审核器实例（带60秒缓存，避免每次请求都查DB）"""
+    global _moderator_cache, _moderator_cache_time
+    now = _time.time()
+    if _moderator_cache is None or (now - _moderator_cache_time) > _MODERATOR_CACHE_TTL:
+        _moderator_cache = ContentModerator(db)
+        _moderator_cache_time = now
+    else:
+        # 更新 db 引用（每次请求的 session 不同）
+        _moderator_cache.db = db
+    return _moderator_cache

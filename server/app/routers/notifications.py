@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import func, case
 from typing import Optional, Literal
 import re
 import asyncio
@@ -15,17 +15,16 @@ router = APIRouter(prefix="/notifications", tags=["通知"])
 
 
 def parse_mentions(content: str, db: Session) -> list[int]:
-    """解析内容中的 @用户名，返回用户ID列表"""
+    """解析内容中的 @用户名，返回用户ID列表（批量查询，1次DB）"""
     pattern = r"@(\w+)"
-    usernames = re.findall(pattern, content)
+    usernames = list(set(re.findall(pattern, content)))  # 去重
     
-    user_ids = []
-    for username in usernames:
-        user = db.query(User).filter(User.username == username).first()
-        if user:
-            user_ids.append(user.id)
+    if not usernames:
+        return []
     
-    return user_ids
+    # 一次查询获取所有提及的用户
+    users = db.query(User.id).filter(User.username.in_(usernames)).all()
+    return [u[0] for u in users]
 
 
 def create_notification(
@@ -112,8 +111,13 @@ async def list_notifications(
     if is_read is not None:
         query = query.filter(Notification.is_read == is_read)
     
-    # 统计总数
-    total = query.count()
+    # 统计总数（独立 count 查询，避免子查询包装 + 不必要的 JOIN）
+    count_query = db.query(func.count(Notification.id)).filter(
+        Notification.user_id == current_user.id
+    )
+    if is_read is not None:
+        count_query = count_query.filter(Notification.is_read == is_read)
+    total = count_query.scalar()
     total_pages = (total + page_size - 1) // page_size if total > 0 else 1
     
     # 分页查询
@@ -155,21 +159,14 @@ async def get_unread_count(
     current_user: User = Depends(get_current_user)
 ):
     """
-    获取未读通知数量
+    获取未读通知数量（合并为1次条件计数查询）
     """
-    unread = (
-        db.query(func.count(Notification.id))
-        .filter(Notification.user_id == current_user.id, Notification.is_read == False)
-        .scalar()
-    )
+    result = db.query(
+        func.count(Notification.id).label("total"),
+        func.count(case((Notification.is_read == False, 1))).label("unread")
+    ).filter(Notification.user_id == current_user.id).first()
     
-    total = (
-        db.query(func.count(Notification.id))
-        .filter(Notification.user_id == current_user.id)
-        .scalar()
-    )
-    
-    return UnreadCountResponse(unread=unread, total=total)
+    return UnreadCountResponse(unread=result.unread, total=result.total)
 
 
 @router.post("/{notification_id}/read")
