@@ -36,10 +36,11 @@ export const prefetchFrontThreadDetail = async (to) => {
   const id = to.params.id
   const page = 1
   const pageSize = 20
-  const cached = getThreadDetailCache(id, page, pageSize)
+  const sort = 'desc'
+  const cached = getThreadDetailCache(id, page, pageSize, sort)
   if (cached) return cached
-  const res = await getThread(id, { page, page_size: pageSize })
-  return setThreadDetailCache(id, page, pageSize, res)
+  const res = await getThread(id, { page, page_size: pageSize, sort })
+  return setThreadDetailCache(id, page, pageSize, res, sort)
 }
 
 export const prefetchAdminDashboard = async () => {
@@ -81,9 +82,10 @@ export const prefetchAdminThreadDetail = async (to) => {
   const id = to.params.id
   const page = 1
   const pageSize = 20
-  const cached = getThreadDetailCache(id, page, pageSize)
+  const sort = 'desc'
+  const cached = getThreadDetailCache(id, page, pageSize, sort)
   if (cached) return cached
-  const res = await getThread(id, { page, page_size: pageSize })
-  return setThreadDetailCache(id, page, pageSize, res)
+  const res = await getThread(id, { page, page_size: pageSize, sort })
+  return setThreadDetailCache(id, page, pageSize, res, sort)
 }
 

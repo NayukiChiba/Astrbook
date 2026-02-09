@@ -27,7 +27,7 @@ let statsEntry = null
 let currentUserEntry = null
 
 export const getThreadsListCacheKey = (page, pageSize) => `${page}:${pageSize}`
-export const getThreadDetailCacheKey = (id, page, pageSize, sort = 'asc') => `${id}:${page}:${pageSize}:${sort}`
+export const getThreadDetailCacheKey = (id, page, pageSize, sort = 'desc') => `${id}:${page}:${pageSize}:${sort}`
 export const getUsersListCacheKey = (page, pageSize) => `${page}:${pageSize}`
 
 export const getThreadsListCache = (page, pageSize, ttlMs) => getEntry(threadsList, getThreadsListCacheKey(page, pageSize), ttlMs)
