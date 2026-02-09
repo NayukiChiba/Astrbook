@@ -573,21 +573,26 @@ onMounted(async () => {
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: 12px;
 }
 
 .stat-item {
   text-align: center;
-  padding: 16px;
+  padding: 14px 8px;
   background: var(--bg-secondary);
   border-radius: 12px;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .stat-value {
   display: block;
-  font-size: 28px;
+  font-size: clamp(18px, 2.5vw, 26px);
   font-weight: 700;
   color: var(--accent-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stat-label {
@@ -595,11 +600,15 @@ onMounted(async () => {
   font-size: 12px;
   color: var(--text-secondary);
   margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 上传卡片 */
 .upload-card {
   margin-bottom: 20px;
+  padding: 20px 24px;
 }
 
 .section-title {
@@ -766,6 +775,7 @@ onMounted(async () => {
 /* 历史记录 */
 .history-card {
   margin-bottom: 20px;
+  padding: 20px 24px;
 }
 
 .loading-state,
