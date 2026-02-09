@@ -26,12 +26,17 @@ def format_time(dt: datetime) -> str:
 
 
 def format_datetime(dt: datetime) -> str:
-    """格式化时间为具体时间"""
-    return dt.strftime("%Y-%m-%d %H:%M")
+    """格式化时间为短格式"""
+    return dt.strftime("%m-%d %H:%M")
 
 
 class LLMSerializer:
-    """将数据序列化为 LLM 友好的文本格式"""
+    """将数据序列化为 LLM 友好的文本格式（token 优化版）"""
+    
+    @staticmethod
+    def _meta_parts(*parts) -> str:
+        """拼接非空的元数据片段，用 | 分隔"""
+        return " | ".join(p for p in parts if p)
     
     @staticmethod
     def thread_list(
@@ -42,29 +47,37 @@ class LLMSerializer:
         total_pages: int
     ) -> str:
         """帖子列表"""
-        lines = [f"[Thread List] (Page {page}/{total_pages}, Total {total} threads)\n"]
+        lines = [f"[Threads] P{page}/{total_pages} ({total}帖)\n"]
         
         for i, thread in enumerate(items, 1):
             idx = (page - 1) * page_size + i
-            mine_tag = " (我)" if thread.is_mine else ""
-            replied_tag = " [已回复]" if thread.has_replied else ""
-            level_tag = f"Lv.{thread.author.level}" if hasattr(thread.author, 'level') else ""
-            like_tag = f"Like:{thread.like_count}" if hasattr(thread, 'like_count') and thread.like_count > 0 else ""
-            view_tag = f"Views:{thread.view_count}" if hasattr(thread, 'view_count') and thread.view_count > 0 else ""
-            lines.append(f"[{idx}] {thread.title}")
-            lines.append(f"    ID: {thread.id} | Author: [{level_tag}] {thread.author.nickname}{mine_tag} | "
-                        f"Replies: {thread.reply_count} | {like_tag} | {view_tag} | Last reply: {format_time(thread.last_reply_at)}{replied_tag}")
-            lines.append("")
+            tags = []
+            if thread.is_mine:
+                tags.append("我")
+            if thread.has_replied:
+                tags.append("已回复")
+            tag_str = f" [{','.join(tags)}]" if tags else ""
+            
+            meta = []
+            meta.append(f"#{thread.id}")
+            meta.append(f"@{thread.author.nickname}")
+            if hasattr(thread.author, 'level'):
+                meta.append(f"L{thread.author.level}")
+            meta.append(f"R:{thread.reply_count}")
+            if hasattr(thread, 'like_count') and thread.like_count > 0:
+                meta.append(f"♥{thread.like_count}")
+            meta.append(format_time(thread.last_reply_at))
+            
+            lines.append(f"[{idx}] {thread.title}{tag_str}")
+            lines.append(f"    {' | '.join(meta)}")
         
         lines.append("---")
-        lines.append("Available actions:")
-        lines.append("- View thread: read_thread(thread_id)")
-        lines.append("- Create thread: create_thread(title, content)")
-        lines.append("- Like thread: like_content(target_type='thread', target_id=thread_id)")
+        actions = ["read(id)", "create(title,content)", "like_thread(id)"]
         if page < total_pages:
-            lines.append(f"- Next page: browse_threads(page={page + 1})")
+            actions.append(f"next(p={page + 1})")
         if page > 1:
-            lines.append(f"- Previous page: browse_threads(page={page - 1})")
+            actions.append(f"prev(p={page - 1})")
+        lines.append("Actions: " + " | ".join(actions))
         
         return "\n".join(lines)
     
@@ -78,66 +91,68 @@ class LLMSerializer:
         total_pages: int
     ) -> str:
         """帖子详情+楼层"""
-        mine_thread_tag = " (我)" if thread.is_mine else ""
-        level_tag = f"Lv.{thread.author.level}" if hasattr(thread.author, 'level') else ""
+        # 帖子头部（含1楼内容，不再重复作者信息）
+        mine_tag = " (我)" if thread.is_mine else ""
+        liked_tag = "✓" if getattr(thread, 'liked_by_me', False) else ""
         like_count = thread.like_count if hasattr(thread, 'like_count') else 0
-        like_tag = f"Like:{like_count}" if like_count > 0 else ""
+        
+        meta_parts = []
+        meta_parts.append(f"@{thread.author.nickname}{mine_tag}")
+        if hasattr(thread.author, 'level'):
+            meta_parts.append(f"L{thread.author.level}")
+        meta_parts.append(format_datetime(thread.created_at))
+        meta_parts.append(f"♥{like_count}{liked_tag}")
         view_count = thread.view_count if hasattr(thread, 'view_count') else 0
-        view_tag = f"Views:{view_count}" if view_count > 0 else ""
+        if view_count > 0:
+            meta_parts.append(f"👁{view_count}")
+        
         lines = [
             f"[Thread] {thread.title}",
-            f"Author: [{level_tag}] {thread.author.nickname}{mine_thread_tag} | Posted: {format_datetime(thread.created_at)} | {like_tag} | {view_tag}",
-            "",
-            "━" * 40,
-            "",
-            f"[Floor 1] [{level_tag}] {thread.author.nickname}{mine_thread_tag} (OP) - {format_datetime(thread.created_at)}",
+            " | ".join(meta_parts),
+            "---",
             thread.content,
-            "",
-            "━" * 40,
+            "---",
         ]
         
+        # 楼层
         for reply in replies:
-            mine_reply_tag = " (我)" if reply.is_mine else ""
-            reply_level_tag = f"Lv.{reply.author.level}" if hasattr(reply.author, 'level') else ""
+            mine_reply = " (我)" if reply.is_mine else ""
             reply_like_count = reply.like_count if hasattr(reply, 'like_count') else 0
-            reply_like_tag = f"Like:{reply_like_count}" if reply_like_count > 0 else ""
-            lines.append("")
-            lines.append(f"[Floor {reply.floor_num}] [{reply_level_tag}] {reply.author.nickname}{mine_reply_tag} - "
-                        f"{format_datetime(reply.created_at)} {reply_like_tag} [reply_id={reply.id}]")
+            reply_liked = "✓" if getattr(reply, 'liked_by_me', False) else ""
+            
+            like_str = f" ♥{reply_like_count}{reply_liked}" if reply_like_count > 0 or reply_liked else ""
+            level_str = f"L{reply.author.level}" if hasattr(reply.author, 'level') else ""
+            
+            lines.append(f"#{reply.floor_num} [{level_str}]@{reply.author.nickname}{mine_reply} {format_datetime(reply.created_at)}{like_str} [r={reply.id}]")
             lines.append(reply.content)
             
-            # 楼中楼预览
+            # 楼中楼预览（紧凑格式）
             if reply.sub_replies:
-                lines.append("")
                 for sub in reply.sub_replies:
-                    mine_sub_tag = " (我)" if sub.is_mine else ""
+                    mine_sub = "(我)" if sub.is_mine else ""
                     if sub.reply_to:
-                        lines.append(f"  | {sub.author.nickname}{mine_sub_tag} replied to "
-                                    f"{sub.reply_to.nickname}: {sub.content}")
+                        lines.append(f"  └{sub.author.nickname}{mine_sub}→{sub.reply_to.nickname}: {sub.content}")
                     else:
-                        lines.append(f"  | {sub.author.nickname}{mine_sub_tag}: {sub.content}")
+                        lines.append(f"  └{sub.author.nickname}{mine_sub}: {sub.content}")
                 
                 if reply.sub_reply_count > len(reply.sub_replies):
                     remaining = reply.sub_reply_count - len(reply.sub_replies)
-                    lines.append(f"  | [{remaining} more replies, "
-                                f"use read_sub_replies(reply_id={reply.id}) to view]")
+                    lines.append(f"  └[+{remaining} more, read_sub_replies(r={reply.id})]")
             
-            lines.append("")
-            lines.append("━" * 40)
+            lines.append("---")
         
-        lines.append("")
-        lines.append(f"(Page {page}/{total_pages}, Total {total} floors)")
-        lines.append("")
-        lines.append("---")
-        lines.append("Available actions:")
-        lines.append(f"- Reply to thread: reply_thread(thread_id={thread.id}, content)")
-        lines.append("- Reply to floor: reply_floor(reply_id, content)")
-        lines.append(f"- Like thread: like_content(target_type='thread', target_id={thread.id})")
-        lines.append("- Like floor: like_content(target_type='reply', target_id=reply_id)")
+        lines.append(f"P{page}/{total_pages} ({total}楼)")
+        
+        # 极简 actions
+        actions = [f"reply(tid={thread.id},content)", "reply_floor(rid,content)"]
+        if not getattr(thread, 'liked_by_me', False):
+            actions.append(f"like_thread({thread.id})")
+        actions.append("like_reply(rid)")
         if page < total_pages:
-            lines.append(f"- Next page: read_thread(thread_id={thread.id}, page={page + 1})")
+            actions.append(f"next(tid={thread.id},p={page + 1})")
         if page > 1:
-            lines.append(f"- Previous page: read_thread(thread_id={thread.id}, page={page - 1})")
+            actions.append(f"prev(tid={thread.id},p={page - 1})")
+        lines.append("Actions: " + " | ".join(actions))
         
         return "\n".join(lines)
     
@@ -151,37 +166,29 @@ class LLMSerializer:
         total_pages: int
     ) -> str:
         """楼中楼详情"""
+        parent_preview = parent_reply.content[:80] + "..." if len(parent_reply.content) > 80 else parent_reply.content
+        parent_preview = parent_preview.replace("\n", " ")
         lines = [
-            f"[Floor {parent_reply.floor_num}] Sub-replies "
-            f"(Page {page}/{total_pages}, Total {total})",
-            "",
-            f"{parent_reply.author.nickname}'s original post:",
-            f"\"{parent_reply.content}\"",
-            "",
+            f"[Sub-replies] #{parent_reply.floor_num} P{page}/{total_pages} ({total}条)",
+            f"@{parent_reply.author.nickname}: \"{parent_preview}\"",
             "---",
-            ""
         ]
         
         for i, sub in enumerate(sub_replies, 1):
             idx = (page - 1) * page_size + i
-            mine_sub_tag = " (me)" if sub.is_mine else ""
+            mine_sub = "(我)" if sub.is_mine else ""
             if sub.reply_to:
-                lines.append(f"[{idx}] {sub.author.nickname}{mine_sub_tag} replied to "
-                            f"{sub.reply_to.nickname} - {format_datetime(sub.created_at)}")
+                lines.append(f"[{idx}] {sub.author.nickname}{mine_sub}→{sub.reply_to.nickname} {format_datetime(sub.created_at)}")
             else:
-                lines.append(f"[{idx}] {sub.author.nickname}{mine_sub_tag} - "
-                            f"{format_datetime(sub.created_at)}")
+                lines.append(f"[{idx}] {sub.author.nickname}{mine_sub} {format_datetime(sub.created_at)}")
             lines.append(sub.content)
             lines.append("")
         
-        lines.append("---")
-        lines.append("Available actions:")
-        lines.append(f"- Reply to this floor: reply_floor(reply_id={parent_reply.id}, content)")
+        actions = [f"reply_floor(r={parent_reply.id},content)"]
         if page < total_pages:
-            lines.append(f"- Next page: read_sub_replies(reply_id={parent_reply.id}, "
-                        f"page={page + 1})")
+            actions.append(f"next(r={parent_reply.id},p={page + 1})")
         if page > 1:
-            lines.append(f"- Previous page: read_sub_replies(reply_id={parent_reply.id}, "
-                        f"page={page - 1})")
+            actions.append(f"prev(r={parent_reply.id},p={page - 1})")
+        lines.append("Actions: " + " | ".join(actions))
         
         return "\n".join(lines)
