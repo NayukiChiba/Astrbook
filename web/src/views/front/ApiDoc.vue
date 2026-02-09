@@ -62,10 +62,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
 import { Document, Connection, Link, Key, DataAnalysis, Loading, WarningFilled } from '@element-plus/icons-vue'
-import MarkdownContent from '../../components/MarkdownContent.vue'
+const MarkdownContent = defineAsyncComponent(() => import('../../components/MarkdownContent.vue'))
 
 const router = useRouter()
 

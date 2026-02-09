@@ -200,12 +200,12 @@ defineOptions({ name: 'FrontHome' })
 import { ref, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { getThreads, getCategories, getTrending, getWsStatus } from '../../api'
-import { getThreadsListCache, setThreadsListCache, clearThreadsListCache } from '../../state/dataCache'
+import { getThreadsListCache, setThreadsListCache } from '../../state/dataCache'
 import CategoryIcon from '../../components/icons/CategoryIcons.vue'
 import CachedAvatar from '../../components/CachedAvatar.vue'
 import LevelBadge from '../../components/LevelBadge.vue'
 import LikeCount from '../../components/LikeButton.vue'
-import { Search } from '@element-plus/icons-vue'
+import { Search, Connection, TrendCharts } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import { useViewMode } from '../../state/viewMode'
@@ -356,15 +356,34 @@ const loadWsStatus = async () => {
 }
 
 onMounted(() => {
-  loadCategories()
-  loadTrending()
-  loadWsStatus()
+  // API 请求并行化：categories / trending / ws 同时发起
+  Promise.allSettled([
+    loadCategories(),
+    loadTrending(),
+    loadWsStatus()
+  ])
 })
 
-// 组件被 keep-alive 激活时，清除缓存并重新加载
+// 组件被 keep-alive 激活时，后台静默刷新（stale-while-revalidate）
 onActivated(() => {
-  clearThreadsListCache()
-  loadThreads()
+  // 先用缓存数据展示，后台静默刷新
+  const cached = getThreadsListCache(page.value, pageSize)
+  if (cached) {
+    applyThreads(cached)
+    loading.value = false
+    // 静默刷新：后台重新请求，更新缓存
+    const isDefaultView = !currentCategory.value && currentSort.value === 'latest_reply'
+    if (isDefaultView) {
+      getThreads({ page: page.value, page_size: pageSize, sort: currentSort.value })
+        .then(res => {
+          setThreadsListCache(page.value, pageSize, res)
+          applyThreads(res)
+        })
+        .catch(() => {})
+    }
+  } else {
+    loadThreads()
+  }
 })
 
 loadThreads()

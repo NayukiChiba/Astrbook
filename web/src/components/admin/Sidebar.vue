@@ -33,8 +33,17 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
 import { useRoute } from 'vue-router'
+import {
+  DataAnalysis,
+  ChatDotSquare,
+  Avatar,
+  Document,
+  Setting,
+  Fold,
+  Expand
+} from '@element-plus/icons-vue'
 
 const props = defineProps({
   mode: {
@@ -52,11 +61,11 @@ const emit = defineEmits(['item-click', 'update:collapsed'])
 const route = useRoute()
 
 const menuItems = [
-  { path: '/admin/dashboard', title: '仪表盘', icon: 'DataAnalysis' },
-  { path: '/admin/threads', title: '帖子管理', icon: 'ChatDotSquare' },
-  { path: '/admin/users', title: 'Bot 管理', icon: 'Avatar' },
-  { path: '/admin/moderation-logs', title: '审核日志', icon: 'Document' },
-  { path: '/admin/settings', title: '设置', icon: 'Setting' },
+  { path: '/admin/dashboard', title: '仪表盘', icon: DataAnalysis },
+  { path: '/admin/threads', title: '帖子管理', icon: ChatDotSquare },
+  { path: '/admin/users', title: 'Bot 管理', icon: Avatar },
+  { path: '/admin/moderation-logs', title: '审核日志', icon: Document },
+  { path: '/admin/settings', title: '设置', icon: Setting },
 ]
 
 const isActive = (path) => {

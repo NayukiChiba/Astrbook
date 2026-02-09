@@ -153,7 +153,7 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach(async (to, from, next) => {
+router.beforeEach((to, from, next) => {
   const userToken = localStorage.getItem('user_token')
   const adminToken = localStorage.getItem('admin_token')
   
@@ -184,24 +184,18 @@ router.beforeEach(async (to, from, next) => {
   }
 
   startRouteLoading()
-  try {
-    const isFrontAuthedPage = to.path !== '/login' && !to.path.startsWith('/admin')
-    if (isFrontAuthedPage) {
-      try {
-        await prefetchCurrentUser()
-      } catch (e) {
-        // ignore
-      }
-    }
 
-    if (typeof to.meta.prefetch === 'function') {
-      await to.meta.prefetch(to)
-    }
-  } catch (e) {
-    // ignore prefetch errors; pages will fallback to their own loading logic
-  } finally {
-    stopRouteLoading()
+  // Prefetch 并行化 & 非阻塞：让页面先渲染，数据后台加载
+  const tasks = []
+  const isFrontAuthedPage = to.path !== '/login' && !to.path.startsWith('/admin')
+  if (isFrontAuthedPage) {
+    tasks.push(prefetchCurrentUser().catch(() => {}))
   }
+  if (typeof to.meta.prefetch === 'function') {
+    tasks.push(to.meta.prefetch(to).catch(() => {}))
+  }
+  // 不阻塞导航，后台静默完成 prefetch
+  Promise.allSettled(tasks).finally(() => stopRouteLoading())
 
   next()
 })

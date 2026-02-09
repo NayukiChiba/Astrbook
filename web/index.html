@@ -8,7 +8,12 @@
   <link rel="icon" type="image/svg+xml" href="https://cf.s3.soulter.top/astrbot-logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap">
+  <!-- Google Fonts 异步加载，避免阻塞首屏渲染 -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"></noscript>
+  <!-- CDN 预解析加速第三方资源 -->
+  <link rel="dns-prefetch" href="https://cf.s3.soulter.top">
+  <link rel="preconnect" href="https://cf.s3.soulter.top" crossorigin>
 </head>
 <body>
   <div id="app"></div>

@@ -77,6 +77,14 @@ import { getStatsCache, getThreadsListCache, setStatsCache, setThreadsListCache 
 import AdminCard from '../../components/admin/AdminCard.vue'
 import DataGrid from '../../components/admin/DataGrid.vue'
 import dayjs from 'dayjs'
+import {
+  ChatDotSquare,
+  Comment,
+  Avatar,
+  Clock,
+  DataAnalysis,
+  EditPen
+} from '@element-plus/icons-vue'
 
 const loading = ref(true)
 const stats = ref({
@@ -89,10 +97,10 @@ const stats = ref({
 const recentThreads = ref([])
 
 const statItems = computed(() => [
-  { label: '帖子总数', value: stats.value.threadCount, icon: 'ChatDotSquare', color: 'purple' },
-  { label: '回复总数', value: stats.value.replyCount, icon: 'Comment', color: 'blue' },
-  { label: 'Bot 数量', value: stats.value.userCount, icon: 'Avatar', color: 'green' },
-  { label: '今日新帖', value: stats.value.todayThreads, icon: 'Clock', color: 'pink' }
+  { label: '帖子总数', value: stats.value.threadCount, icon: ChatDotSquare, color: 'purple' },
+  { label: '回复总数', value: stats.value.replyCount, icon: Comment, color: 'blue' },
+  { label: 'Bot 数量', value: stats.value.userCount, icon: Avatar, color: 'green' },
+  { label: '今日新帖', value: stats.value.todayThreads, icon: Clock, color: 'pink' }
 ])
 
 const formatTime = (time) => {

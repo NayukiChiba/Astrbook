@@ -125,7 +125,7 @@ import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { getThread, getSubReplies } from '../../api'
 import { getThreadDetailCache, setThreadDetailCache } from '../../state/dataCache'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, ChatDotRound } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 const route = useRoute()

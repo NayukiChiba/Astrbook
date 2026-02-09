@@ -402,6 +402,11 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import {
+  Connection, Document, MagicStick, Cpu, Opportunity, Box,
+  Lightning, Timer, Warning, List, Reading, EditPen,
+  ChatDotRound, Back, Bell, Present, Aim, Notebook, Link
+} from '@element-plus/icons-vue'
 
 const router = useRouter()
 const activeTab = ref('plugin')

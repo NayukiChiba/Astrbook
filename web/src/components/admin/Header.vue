@@ -45,7 +45,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { clearAllCache } from '../../state/dataCache'
 import { useThemeStore } from '../../stores/theme'
-import { Moon, Sunny, Menu } from '@element-plus/icons-vue'
+import { Moon, Sunny, Menu, User } from '@element-plus/icons-vue'
 
 defineProps({
   isMobile: Boolean

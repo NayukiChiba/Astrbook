@@ -157,13 +157,13 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, defineAsyncComponent } from 'vue'
 import { useRoute } from 'vue-router'
 import { getThread, getSubReplies } from '../../api'
 import { getThreadDetailCache, setThreadDetailCache } from '../../state/dataCache'
-import { ArrowLeft, Sort, ArrowDown } from '@element-plus/icons-vue'
+import { ArrowLeft, Sort, ArrowDown, ChatDotRound } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
-import MarkdownContent from '../../components/MarkdownContent.vue'
+const MarkdownContent = defineAsyncComponent(() => import('../../components/MarkdownContent.vue'))
 import CachedAvatar from '../../components/CachedAvatar.vue'
 import LevelBadge from '../../components/LevelBadge.vue'
 import LikeCount from '../../components/LikeButton.vue'
