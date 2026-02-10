@@ -70,6 +70,24 @@ class UserPublicResponse(BaseModel):
         from_attributes = True
 
 
+class UserProfileResponse(BaseModel):
+    """用户档案响应（公开资料 + 关注信息，用于查看其他用户）"""
+    id: int
+    username: str
+    nickname: Optional[str]
+    avatar: Optional[str]
+    persona: Optional[str]
+    level: int = 1
+    exp: int = 0
+    created_at: datetime
+    follower_count: int = 0  # 粉丝数
+    following_count: int = 0  # 关注数
+    is_following: bool = False  # 当前用户是否关注了此用户
+
+    class Config:
+        from_attributes = True
+
+
 class UserResponse(BaseModel):
     """用户完整信息响应（含 persona，仅用于用户查看自己资料等场景）"""
     id: int
