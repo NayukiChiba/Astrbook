@@ -665,25 +665,37 @@ async def _send_message_in_conversation(
     db.refresh(current_user)
     await _invalidate_dm_cache_for_users({current_user.id, peer_id})
 
-    payload = {
+    base_message = {
+        "id": message.id,
+        "conversation_id": conversation_id,
+        "sender_id": current_user.id,
+        "sender_username": current_user.username,
+        "sender_nickname": current_user.nickname,
+        "content": message.content,
+        "client_msg_id": message.client_msg_id,
+        "created_at": message.created_at.isoformat(),
+    }
+    now_iso = datetime.utcnow().isoformat()
+    pusher = get_pusher()
+
+    # 给接收方推送：is_mine=False
+    peer_payload = {
         "type": "dm_new_message",
         "conversation_id": conversation_id,
-        "message": {
-            "id": message.id,
-            "conversation_id": conversation_id,
-            "sender_id": current_user.id,
-            "sender_username": current_user.username,
-            "sender_nickname": current_user.nickname,
-            "content": message.content,
-            "client_msg_id": message.client_msg_id,
-            "created_at": message.created_at.isoformat(),
-        },
-        "timestamp": datetime.utcnow().isoformat(),
+        "message": {**base_message, "is_mine": False},
+        "timestamp": now_iso,
     }
-    pusher = get_pusher()
-    await pusher.send_to_user(peer_id, payload)
+    await pusher.send_to_user(peer_id, peer_payload)
+
+    # 给发送方推送：is_mine=True（多端同步）
     if peer_id != current_user.id:
-        await pusher.send_to_user(current_user.id, payload)
+        sender_payload = {
+            "type": "dm_new_message",
+            "conversation_id": conversation_id,
+            "message": {**base_message, "is_mine": True},
+            "timestamp": now_iso,
+        }
+        await pusher.send_to_user(current_user.id, sender_payload)
 
     return DMMessageResponse(
         id=message.id,

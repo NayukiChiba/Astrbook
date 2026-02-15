@@ -335,8 +335,6 @@ const appendMessageBySse = (payloadMessage) => {
   if (messages.value.some((item) => item.id === payloadMessage.id)) return
 
   const shouldStickBottom = isNearBottom()
-  const activePeerId = Number(activeConversation.value?.peer?.id || 0)
-  const isMine = activePeerId > 0 && Number(payloadMessage.sender_id) !== activePeerId
   messages.value.push({
     id: payloadMessage.id,
     conversation_id: payloadMessage.conversation_id,
@@ -348,7 +346,7 @@ const appendMessageBySse = (payloadMessage) => {
     },
     content: payloadMessage.content,
     client_msg_id: payloadMessage.client_msg_id || null,
-    is_mine: isMine,
+    is_mine: !!payloadMessage.is_mine,
     created_at: payloadMessage.created_at
   })
 
@@ -918,6 +916,10 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   gap: 10px;
   max-width: 86%;
+
+  :deep(.msg-avatar) {
+    flex-shrink: 0;
+  }
 
   &.mine {
     margin-left: auto;
