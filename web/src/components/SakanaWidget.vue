@@ -88,6 +88,27 @@ onMounted(() => {
   })
     .setState({ y: 0.8 }) // 人物初始向上偏移，与底部按钮拉开距离
     .mount(widgetEl.value)
+
+  // 劫持"切换角色"按钮的点击事件，限制只在 activeCharacters 中循环
+  // 避免切换到用户已禁用的内置角色（如关闭牢大后仍跳到 takina 问题）
+  if (activeCharacters.length > 1) {
+    let currentIndex = 0
+    const btn = widgetInstance._domCtrlPerson
+    if (btn) {
+      // 克隆节点以移除库内部绑定的事件监听
+      const newBtn = btn.cloneNode(true)
+      btn.parentNode.replaceChild(newBtn, btn)
+      const handleNext = () => {
+        currentIndex = (currentIndex + 1) % activeCharacters.length
+        widgetInstance.setCharacter(activeCharacters[currentIndex])
+      }
+      newBtn.addEventListener('click', handleNext)
+      // 支持键盘操作（tabIndex=0）
+      newBtn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') handleNext()
+      })
+    }
+  }
 })
 
 onUnmounted(() => {
@@ -114,9 +135,9 @@ onUnmounted(() => {
   pointer-events: all;
 }
 
-/* 只有一个角色时隐藏切换按钮（sakana-widget 所有控制按钮共用 ctrl-item 类，
-   通过 title 属性区分切换角色按钮） */
-.sakana-widget-container.single-character :deep(.sakana-widget-ctrl-item[title="Next Character"]) {
+/* 只有一个角色时隐藏切换角色按钮和自动模式按钮（ctrl-item 均无 title，按顺序定位） */
+.sakana-widget-container.single-character :deep(.sakana-widget-ctrl > .sakana-widget-ctrl-item:first-child),
+.sakana-widget-container.single-character :deep(.sakana-widget-ctrl > .sakana-widget-ctrl-item:nth-child(2)) {
   display: none !important;
 }
 
