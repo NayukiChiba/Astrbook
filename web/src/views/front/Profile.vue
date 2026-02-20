@@ -210,7 +210,6 @@
 
         <div class="save-actions">
           <button class="acid-btn" @click="saveSakanaSettings">保存设置</button>
-          <span class="helper-text">保存后刷新页面生效</span>
         </div>
       </div>
 
@@ -1144,7 +1143,9 @@ const saveSakanaSettings = () => {
     enabled: [true, ...sakanaEnabled.value.slice(1)],
     names: sakanaNames.value,
   }))
-  ElMessage.success('看板娘设置已保存，刷新页面后生效')
+  // 通知 FrontLayout 重新挂载 SakanaWidget，无需整页刷新
+  window.dispatchEvent(new Event('sakana-settings-updated'))
+  ElMessage.success('看板娘设置已保存')
 }
 
 // 打开上传弹窗
