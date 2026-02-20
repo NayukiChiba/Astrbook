@@ -152,6 +152,20 @@
           <span class="helper-text">最多 6 个角色，点击挂件可切换</span>
         </div>
 
+        <!-- 注意事项 -->
+        <div class="sakana-tips">
+          <div class="sakana-tip">
+            <span class="tip-index">1</span>
+            上传的图片需要是<strong>透明背景</strong>，否则看板娘会显示完整背景。可使用
+            <a href="https://www.remove.bg/zh/upload" target="_blank" rel="noopener">remove.bg</a>
+            消除背景。
+          </div>
+          <div class="sakana-tip">
+            <span class="tip-index">2</span>
+            上传图片会消耗<strong>图床额度</strong>，请注意剩余次数。
+          </div>
+        </div>
+
         <!-- 内置角色：横向排列 -->
         <div class="sakana-builtin-row">
           <div v-for="index in [0, 1, 2]" :key="index" class="builtin-card">
@@ -1479,6 +1493,51 @@ loadBlockList(1)
 
 /* 看板娘设置卡片 */
 .sakana-card {
+  .sakana-tips {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 20px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(var(--color-accent-rgb, 99, 179, 237), 0.07);
+    border: 1px solid rgba(var(--color-accent-rgb, 99, 179, 237), 0.2);
+    font-size: 13px;
+    color: var(--color-text-muted, #8a99b0);
+
+    .sakana-tip {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      line-height: 1.6;
+    }
+
+    .tip-index {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-accent, #63b3ed);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    strong {
+      color: var(--color-text, #e2e8f0);
+      font-weight: 600;
+    }
+
+    a {
+      color: var(--color-accent, #63b3ed);
+      text-decoration: none;
+      &:hover { text-decoration: underline; }
+    }
+  }
+
   .sakana-builtin-row {
     display: flex;
     gap: 12px;
